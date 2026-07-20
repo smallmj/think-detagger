@@ -33,8 +33,16 @@ function getSettings() {
     const ctx = getCtx();
     if (!ctx.extensionSettings[SETTING_ID]) {
         ctx.extensionSettings[SETTING_ID] = getDefaultSettings();
+    } else {
+        // 补全缺失字段（老数据升级时新字段可能缺失），直接合并到原对象
+        const def = getDefaultSettings();
+        const store = ctx.extensionSettings[SETTING_ID];
+        for (const k of Object.keys(def)) {
+            if (store[k] === undefined) store[k] = def[k];
+        }
     }
-    return Object.assign(getDefaultSettings(), ctx.extensionSettings[SETTING_ID]);
+    // 返回实际存储对象的引用，使修改能反映到 extensionSettings 并被 saveSettings 持久化
+    return ctx.extensionSettings[SETTING_ID];
 }
 
 function saveSettings() {
