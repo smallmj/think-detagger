@@ -1,0 +1,32 @@
+<!--
+  Think Detagger 设置面板模板。
+  注意：当前 index.js 内联渲染了等价 UI（不依赖本文件加载），以保证在 fetch 失败时仍可用。
+  本文件作为模板参考与未来重构用，结构与 index.js 中 renderSettingsPanel() 的 innerHTML 一致。
+-->
+<div id="think_detagger_settings" class="think-detagger-settings">
+    <div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header">
+            <b>Think Detagger (思考去tag化)</b>
+            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+        </div>
+        <div class="inline-drawer-content">
+            <label class="checkbox_label">
+                <input type="checkbox" id="td_enabled" checked>
+                <span>启用自动去 tag 化</span>
+            </label>
+            <label class="checkbox_label">
+                <input type="checkbox" id="td_process_reasoning" checked>
+                <span>同时处理原生 reasoning (extra.reasoning)</span>
+            </label>
+            <div class="td_section">
+                <label for="td_tags"><small>危险 tag 白名单（一行一个；<b>think / thinking 是边界标签，勿加</b>）</small></label>
+                <textarea id="td_tags" rows="8" style="width:100%;font-family:monospace;font-size:small;"></textarea>
+            </div>
+            <div class="td_buttons">
+                <div class="menu_button" id="td_save_btn" title="保存白名单与开关">保存设置</div>
+                <div class="menu_button" id="td_runall_btn" title="立即处理当前聊天所有 AI 消息">立即处理全部消息</div>
+            </div>
+            <small class="td_hint">自动触发时机：MVU 变量更新结束后（装了 MVU 时）或消息接收后。手动命令：<code>/detag-all</code></small>
+        </div>
+    </div>
+</div>

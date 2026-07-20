@@ -1,0 +1,11 @@
+{
+  "name": "think-detagger",
+  "version": "0.1.0",
+  "description": "SillyTavern extension: strip angle brackets from dangerous tags inside <think> blocks to prevent rendering breakage.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node test/core.test.mjs"
+  },
+  "license": "MIT"
+}
