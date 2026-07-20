@@ -460,6 +460,7 @@ function onVarUpdateEnded(...args) {
 
 // ---------- 手动：处理最近一条 ----------
 async function processLatestMessage() {
+    persistSettingsFromPanel();
     try {
         const ctx = getCtx();
         const chat = ctx.chat;
@@ -518,6 +519,7 @@ async function processLatestMessage() {
 }
 
 async function processLatestMessageFix() {
+    persistSettingsFromPanel();
     try {
         const ctx = getCtx();
         const chat = ctx.chat;
@@ -603,6 +605,77 @@ function makeDraggable(el, onClick) {
 }
 
 // ---------- 设置面板 ----------
+// 从设置面板实时读取并保存（无需保存按钮）
+function persistSettingsFromPanel() {
+    if (!document.getElementById('td_fix_url')) return; // 面板未渲染
+    const s = getSettings();
+    const val = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
+    const chk = (id) => { const el = document.getElementById(id); return !!(el && el.checked); };
+    s.enabled = chk('td_enabled');
+    s.processReasoning = chk('td_process_reasoning');
+    s.showFloatingBall = chk('td_show_ball');
+    s.thinkTags = val('td_think_tags').split('\n').map(t => t.trim()).filter(Boolean);
+    s.tags = val('td_tags').split('\n').map(t => t.trim()).filter(Boolean);
+    s.autoDelay = Number(val('td_auto_delay')) || 0;
+    s.plotTag = val('td_plot_tag').trim() || 'now_plot';
+    s.llmFixEnabled = chk('td_llm_fix');
+    s.autoFix = chk('td_auto_fix');
+    s.fixTimeout = Number(val('td_fix_timeout')) || 60;
+    s.fixConnection = s.fixConnection || {};
+    s.fixConnection.apiUrl = val('td_fix_url').trim();
+    s.fixConnection.apiKey = val('td_fix_key').trim();
+    s.fixConnection.model = val('td_fix_model').trim();
+    s.fixConnection.maxTokens = Number(val('td_fix_maxtok')) || 8192;
+    s.fixConnection.temperature = Number(val('td_fix_temp'));
+    s.formatSource = s.formatSource || {};
+    s.formatSource.useWorldInfo = chk('td_use_wi');
+    s.formatSource.usePreset = chk('td_use_preset');
+    s.formatSource.useManual = chk('td_use_manual');
+    s.formatSource.manualText = val('td_manual');
+    s.formatSource.selectedWiUids = collectChecked('td_wi_list');
+    s.formatSource.selectedPromptIds = collectChecked('td_preset_list');
+    saveSettings();
+    ensureFloatingBall();
+}
+
+// 从 API 拉取模型列表，填充下拉
+async function refreshModelList() {
+    const urlEl = document.getElementById('td_fix_url');
+    const keyEl = document.getElementById('td_fix_key');
+    if (!urlEl) return;
+    const url = urlEl.value.trim();
+    const key = keyEl ? keyEl.value.trim() : '';
+    if (!url) { toast('请先填写 API URL', 'warning'); return; }
+    toast('拉取模型列表中…');
+    try {
+        let modelUrl = url.replace(/\/+$/, '');
+        if (!/\/models$/i.test(modelUrl)) modelUrl += '/models';
+        const res = await fetch(modelUrl, {
+            method: 'GET',
+            headers: key
+                ? { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }
+                : { 'Content-Type': 'application/json' },
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const list = data.data || data.models || data || [];
+        const models = list.map(m => (typeof m === 'string' ? m : (m.id || m.name || m.model))).filter(Boolean);
+        let dl = document.getElementById('td_fix_model_list');
+        if (!dl) {
+            dl = document.createElement('datalist');
+            dl.id = 'td_fix_model_list';
+            document.body.appendChild(dl);
+            const modelInput = document.getElementById('td_fix_model');
+            if (modelInput) modelInput.setAttribute('list', 'td_fix_model_list');
+        }
+        dl.innerHTML = models.map(m => `<option value="${escapeHtml(m)}">`).join('');
+        toast(`已获取 ${models.length} 个模型，点模型输入框下拉选择`);
+    } catch (e) {
+        console.warn(TAG, '拉取模型列表失败', e);
+        toast('拉取失败：' + (e && e.message ? e.message : e) + '（可能 CORS 限制，可手动填模型名）', 'error');
+    }
+}
+
 function renderSettingsPanel() {
     const container = document.getElementById('extensions_settings');
     if (!container) { console.warn(TAG, '未找到 #extensions_settings'); return; }
@@ -639,7 +712,6 @@ function renderSettingsPanel() {
                     <input type="number" id="td_auto_delay" min="0" max="60" step="1" value="${settings.autoDelay ?? 2}" class="td_number">
                 </div>
                 <div class="td_buttons">
-                    <div class="menu_button" id="td_save_btn">保存设置</div>
                     <div class="menu_button" id="td_runall_btn">立即处理最近一条</div>
                 </div>
 
@@ -655,7 +727,11 @@ function renderSettingsPanel() {
                     <small>独立修复连接（推荐用便宜快速模型）：</small>
                     <input type="text" id="td_fix_url" placeholder="API URL" value="${settings.fixConnection?.apiUrl || ''}" class="td_input">
                     <input type="text" id="td_fix_key" placeholder="API Key" value="${settings.fixConnection?.apiKey || ''}" class="td_input">
-                    <input type="text" id="td_fix_model" placeholder="模型名，如 gemini-2.5-flash" value="${settings.fixConnection?.model || ''}" class="td_input">
+                    <div class="td_row">
+                        <input type="text" id="td_fix_model" list="td_fix_model_list" placeholder="模型名，如 gemini-2.5-flash" value="${settings.fixConnection?.model || ''}" class="td_input" style="flex:1">
+                        <div class="menu_button menu_button_small" id="td_model_refresh" title="从 API 拉取模型列表">刷新模型</div>
+                    </div>
+                    <datalist id="td_fix_model_list"></datalist>
                     <div class="td_row">
                         <label for="td_fix_maxtok"><small>max_tokens（最大输出长度；整文重写需 ≥ 主对话回复长度，默认 8192，会按原文长度自动放大）</small></label>
                         <input type="number" id="td_fix_maxtok" min="256" max="32768" step="256" value="${settings.fixConnection?.maxTokens ?? 8192}" class="td_number">
@@ -694,45 +770,17 @@ function renderSettingsPanel() {
     container.appendChild(wrap);
 
     const $ = (id) => wrap.querySelector('#' + id);
-    const persist = () => {
-        const s = getSettings();
-        s.enabled = !!$('td_enabled').checked;
-        s.processReasoning = !!$('td_process_reasoning').checked;
-        s.showFloatingBall = !!$('td_show_ball').checked;
-        s.thinkTags = $('td_think_tags').value.split('\n').map(t => t.trim()).filter(Boolean);
-        s.tags = $('td_tags').value.split('\n').map(t => t.trim()).filter(Boolean);
-        s.autoDelay = Number($('td_auto_delay').value) || 0;
-        s.plotTag = $('td_plot_tag').value.trim() || 'now_plot';
-        s.llmFixEnabled = !!$('td_llm_fix').checked;
-        s.autoFix = !!$('td_auto_fix').checked;
-        s.fixTimeout = Number($('td_fix_timeout').value) || 60;
-        s.fixConnection = s.fixConnection || {};
-        s.fixConnection.apiUrl = $('td_fix_url').value.trim();
-        s.fixConnection.apiKey = $('td_fix_key').value.trim();
-        s.fixConnection.model = $('td_fix_model').value.trim();
-        s.fixConnection.maxTokens = Number($('td_fix_maxtok').value) || 2048;
-        s.fixConnection.temperature = Number($('td_fix_temp').value);
-        s.formatSource = s.formatSource || {};
-        s.formatSource.useWorldInfo = !!$('td_use_wi').checked;
-        s.formatSource.usePreset = !!$('td_use_preset').checked;
-        s.formatSource.useManual = !!$('td_use_manual').checked;
-        s.formatSource.manualText = $('td_manual').value;
-        s.formatSource.selectedWiUids = collectChecked('td_wi_list');
-        s.formatSource.selectedPromptIds = collectChecked('td_preset_list');
-        saveSettings();
-        ensureFloatingBall();
-    };
+    const persist = persistSettingsFromPanel;
 
-    $('td_save_btn').addEventListener('click', persist);
-    $('td_enabled').addEventListener('change', persist);
-    $('td_process_reasoning').addEventListener('change', persist);
-    $('td_show_ball').addEventListener('change', persist);
+    // 所有输入实时自动保存（无需保存按钮）
+    ['td_enabled', 'td_process_reasoning', 'td_show_ball', 'td_llm_fix', 'td_auto_fix'].forEach(id => $(id)?.addEventListener('change', persist));
+    ['td_think_tags', 'td_tags', 'td_manual', 'td_auto_delay', 'td_plot_tag', 'td_fix_timeout', 'td_fix_url', 'td_fix_key', 'td_fix_model', 'td_fix_maxtok', 'td_fix_temp'].forEach(id => $(id)?.addEventListener('input', persist));
+
     $('td_runall_btn').addEventListener('click', () => { persist(); processLatestMessage().then(r => toast(r.msg)); });
     $('td_fix_btn').addEventListener('click', () => { persist(); processLatestMessageFix().then(r => { if (!r.ok) toast(r.msg, 'warning'); }); });
-    $('td_llm_fix').addEventListener('change', persist);
-    $('td_auto_fix').addEventListener('change', persist);
+    $('td_model_refresh').addEventListener('click', refreshModelList);
 
-    // 来源开关显隐
+    // 来源开关：显隐 + 保存 + 加载
     $('td_use_wi').addEventListener('change', (e) => {
         $('td_wi_list_wrap').style.display = e.target.checked ? 'block' : 'none';
         persist();
@@ -747,6 +795,9 @@ function renderSettingsPanel() {
         $('td_manual_wrap').style.display = e.target.checked ? 'block' : 'none';
         persist();
     });
+    // 勾选列表变化保存
+    $('td_wi_list').addEventListener('change', persist);
+    $('td_preset_list').addEventListener('change', persist);
     $('td_wi_refresh').addEventListener('click', () => { loadWorldInfoEntriesForUI(); renderWiList($('td_wi_search')?.value || ''); });
     $('td_preset_refresh').addEventListener('click', () => { loadPresetPromptsForUI(); renderPresetList($('td_preset_search')?.value || ''); });
     $('td_wi_search').addEventListener('input', (e) => renderWiList(e.target.value));
