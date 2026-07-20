@@ -203,6 +203,18 @@ console.log('\n== ruleFixStructure ==');
     ok(r.changed, '自定义 plotTag 重包裹');
     ok(/<story>\n正文\n<\/story>/.test(r.text), '用自定义 plotTag 包裹');
 }
+{
+    // details 跨越 now_plot -> 规则修复移到外
+    const CROSS = '<think>s</think>\n<now_plot>\n<content>文</content>\n<details>\n</now_plot>\n<summary>x</summary>\n</details>';
+    const r = ruleFixStructure(CROSS, 'now_plot', ['think', 'thinking']);
+    ok(r.changed, '跨越 tag 修正 changed');
+    ok(r.reason.includes('跨越tag修正'), 'reason 含跨越tag修正');
+    const npClose = r.text.indexOf('</now_plot>');
+    const dOpen = r.text.indexOf('<details>');
+    ok(dOpen > npClose, 'details 移到 now_plot 外');
+    const di = detectIssues(r.text, ['think', 'thinking'], ['now_plot'], 'now_plot');
+    ok(!di.issues.some(s => s.includes('不平衡')), '修后无不平衡');
+}
 
 console.log(`\n== 结果: ${passed} passed, ${failed} failed ==`);
 if (failed > 0) process.exit(1);

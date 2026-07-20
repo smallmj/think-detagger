@@ -329,8 +329,52 @@ function rewrapPlot(text, plotTag, thinkTags) {
     return `${prefix}\n\n<${plotTag}>\n${middle}\n</${plotTag}>\n\n${suffix.replace(/^\s+/, '')}`;
 }
 
+// 把"开在 plotTag 内、闭在 plotTag 外"的跨越 tag 移到 plotTag 外：
+// 将 </plotTag> 移到该 tag 开标签前，让 tag 完全在 plotTag 外。
+// 适用于 details/summary/choice 等尾部块被误开在正文容器内的情况。
+function fixCrossingTags(text, plotTag) {
+    const plotClose = `</${plotTag}>`;
+    let result = text;
+    for (let iter = 0; iter < 8; iter++) {
+        const ranges = getPlotTagRanges(result, plotTag);
+        if (ranges.length === 0) break;
+        let fixed = false;
+        for (const range of ranges) {
+            const inner = result.slice(range.start, range.end);
+            const openRe = /<([A-Za-z\u4e00-\u9fa5][\w:-]*)\b[^>]*>/g;
+            let m;
+            while ((m = openRe.exec(inner)) !== null) {
+                if (m[0].endsWith('/>')) continue;
+                const tagName = m[1];
+                if (tagName.toLowerCase() === plotTag.toLowerCase()) continue;
+                const openAbs = range.start + m.index;
+                const closeRe = new RegExp(`</\\s*${escapeRegExp(tagName)}\\s*>`, 'i');
+                const after = result.slice(openAbs + m[0].length);
+                const cm = after.match(closeRe);
+                if (!cm) continue;
+                const closeAbs = openAbs + m[0].length + cm.index;
+                if (closeAbs < range.end) continue; // 闭在内，不跨越
+                // 跨越：找 </plotTag>（在 openAbs 后、range.end 前）
+                const plotCloseStart = result.lastIndexOf(plotClose, range.end - 1);
+                if (plotCloseStart < 0 || plotCloseStart <= openAbs) break;
+                const plotCloseEnd = plotCloseStart + plotClose.length;
+                // 删除 </plotTag>（在 openAbs 后，不影响 openAbs）
+                let r = result.slice(0, plotCloseStart) + result.slice(plotCloseEnd);
+                // 在开标签前插入 </plotTag>
+                r = r.slice(0, openAbs) + plotClose + '\n' + r.slice(openAbs);
+                result = r;
+                fixed = true;
+                break;
+            }
+            if (fixed) break;
+        }
+        if (!fixed) break;
+    }
+    return result;
+}
+
 /**
- * 纯规则结构修复（零成本）：代码块迁移 + plotTag 重包裹。
+ * 纯规则结构修复（零成本）：代码块迁移 + plotTag 重包裹 + 跨越 tag 修正。
  * 返回 { text, changed, reason }。LLM 修复前先调它，修得了就不必调 LLM。
  */
 export function ruleFixStructure(text, plotTag = 'now_plot', thinkTags = BOUNDARY_TAGS) {
@@ -341,5 +385,7 @@ export function ruleFixStructure(text, plotTag = 'now_plot', thinkTags = BOUNDAR
     if (a !== out) { out = a; reasons.push('代码块迁移'); }
     const b = rewrapPlot(out, plotTag, thinkTags);
     if (b !== out) { out = b; reasons.push('正文重包裹'); }
+    const c = fixCrossingTags(out, plotTag);
+    if (c !== out) { out = c; reasons.push('跨越tag修正'); }
     return { text: out, changed: reasons.length > 0, reason: reasons.join('+') };
 }
