@@ -509,14 +509,16 @@ function ensureFloatingBall() {
 function makeDraggable(el, onClick) {
     let dragging = false;
     let startX = 0, startY = 0, origX = 0, origY = 0, moved = false;
-    el.addEventListener('mousedown', (e) => {
+
+    el.addEventListener('pointerdown', (e) => {
         dragging = true; moved = false;
         startX = e.clientX; startY = e.clientY;
         const rect = el.getBoundingClientRect();
         origX = rect.left; origY = rect.top;
+        try { el.setPointerCapture(e.pointerId); } catch {}
         e.preventDefault();
     });
-    document.addEventListener('mousemove', (e) => {
+    el.addEventListener('pointermove', (e) => {
         if (!dragging) return;
         const dx = e.clientX - startX, dy = e.clientY - startY;
         if (Math.abs(dx) > 4 || Math.abs(dy) > 4) moved = true;
@@ -524,11 +526,14 @@ function makeDraggable(el, onClick) {
         el.style.top = (origY + dy) + 'px';
         el.style.right = 'auto'; el.style.bottom = 'auto';
     });
-    document.addEventListener('mouseup', () => { dragging = false; });
-    el.addEventListener('click', () => {
-        if (moved) { moved = false; return; }
-        if (typeof onClick === 'function') onClick();
-    });
+    const endDrag = (e) => {
+        if (!dragging) return;
+        dragging = false;
+        try { el.releasePointerCapture(e.pointerId); } catch {}
+        if (!moved && typeof onClick === 'function') onClick();
+    };
+    el.addEventListener('pointerup', endDrag);
+    el.addEventListener('pointercancel', endDrag);
 }
 
 // ---------- 设置面板 ----------

@@ -73,6 +73,7 @@
     font-size: 18px;
     transition: transform 0.15s ease, opacity 0.15s ease;
     opacity: 0.85;
+    touch-action: none; /* 防止触摸拖动时页面滚动/缩放干扰 */
 }
 .td-floating-ball:hover {
     transform: scale(1.1);
