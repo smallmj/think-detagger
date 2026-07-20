@@ -39,6 +39,25 @@ export function getDefaultSettings() {
         processReasoning: true,
         showFloatingBall: true,
         autoDelay: 2,
+        // LLM 格式修复模块（v0.4.0）
+        llmFixEnabled: false,
+        autoFix: true,
+        fixTimeout: 60,
+        fixConnection: {
+            apiUrl: '',
+            apiKey: '',
+            model: '',
+            maxTokens: 2048,
+            temperature: 0.2,
+        },
+        formatSource: {
+            useWorldInfo: false,
+            usePreset: false,
+            useManual: false,
+            selectedWiUids: [],
+            selectedPromptIds: [],
+            manualText: '',
+        },
     };
 }
 

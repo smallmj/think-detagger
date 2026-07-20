@@ -81,3 +81,52 @@
 .td-floating-ball:active {
     transform: scale(0.95);
 }
+
+/* LLM 修复设置区 */
+.think-detagger-settings .td_input {
+    box-sizing: border-box;
+    width: 100%;
+    margin-top: 4px;
+    padding: 4px 6px;
+    font-size: small;
+}
+.think-detagger-settings .td_subhead {
+    font-weight: bold;
+    margin: 8px 0 4px;
+}
+.think-detagger-settings .menu_button_small {
+    padding: 2px 8px;
+    font-size: small;
+}
+.think-detagger-settings .td_list_wrap {
+    margin: 4px 0 8px 16px;
+}
+.think-detagger-settings .td_checklist {
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.3));
+    border-radius: 4px;
+    padding: 4px;
+    margin-top: 4px;
+}
+.think-detagger-settings .td_checkitem {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 3px 0;
+    border-bottom: 1px dashed rgba(128, 128, 128, 0.2);
+}
+.think-detagger-settings .td_checkitem:last-child {
+    border-bottom: none;
+}
+.think-detagger-settings .td_checktext {
+    flex: 1;
+    word-break: break-word;
+}
+.think-detagger-settings .td_checktext small {
+    opacity: 0.7;
+}
+.think-detagger-settings hr {
+    margin: 10px 0;
+    opacity: 0.4;
+}

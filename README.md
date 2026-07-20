@@ -77,6 +77,41 @@ action, summary, DiceCombat, disclaimer, pic, thought, reasoning
 
 手动触发后会给出详细提示：列出本次去掉了哪些 tag 的尖括号，或提示"无需处理"。此外会自动扫描思考内容中**存在但未在危险名单**的 tag（排除 `<b>`/`<i>` 等常见合法 HTML），弹窗询问是否加入白名单并自动重新处理一遍。
 
+## LLM 格式修复（v0.4.0，可选）
+
+detag 只能处理思考区里的 tag（去 `<>` 防崩），修不了正文区的结构格式错误（如正文写在 `<now_plot>` 外、`<now_plot>` 为空、tag 名错、代码块未配对、变量块 JSON 语法错）。LLM 格式修复模块用**独立连接的 LLM** 结合你指定的格式要求做兜底修复。
+
+### 工作方式（detag + LLM 接力）
+1. detag 先处理思考区 tag（零成本）
+2. `detectIssues` 检测正文区结构问题（now_plot 空/正文在外/代码块未配对/json_patch 语法错/未知 tag）
+3. 检测到问题才调 LLM（整文重写）
+4. **指纹校验**：只比对"正文叙事文字"（剥离变量块 `<UpdateVariable>/<update>/<json_patch>` 与生图 `<image>/<pic>` 后），LLM 改了正文叙事则拒绝、回退原文
+5. 通过则写回 `mes` + 重渲
+
+### 配置
+- **启用 LLM 格式修复**：总开关
+- **自动模式**：检测到问题自动调 LLM（关闭则只手动）
+- **独立修复连接**：API URL / API Key / Model / max_tokens / temperature（推荐用便宜快速模型如 `gemini-2.5-flash`，避免主模型预设高温干扰）
+- **修复超时**：秒
+- **格式要求来源**（手动配置，可多选组合）：
+  - ☐ **世界书条目**：列出当前角色卡内嵌书 + 绑定全局书 + 全局勾选书的条目，勾选要作为格式要求的条目
+  - ☐ **预设 prompt**：列出当前预设的 prompts（按 prompt_order enabled），勾选要作为格式要求的 prompt
+  - ☐ **手动填写**：textarea 手写格式要求
+  - 刷新按钮：角色卡/预设切换后重新加载列表（勾选状态按 uid/identifier 保留）
+
+### 触发
+- 自动：开启"自动模式"后，每轮检测到格式问题自动调 LLM
+- 手动：`/fix-format` 命令 或 设置面板"立即 LLM 修复最近一条"按钮（detag + LLM 修复最近一条）
+
+### 指纹校验与变量块
+- **指纹只比对正文叙事文字**：剥离变量块和生图 tag 后，去 tag/标记/空白。LLM 重排正文、修 tag 名、修变量块内部语法都不改变正文叙事 -> 通过；LLM 润色正文 -> 指纹变 -> 拒绝。
+- **变量块保留**：多个变量块是正常的（额外模型解析/其他插件会追加），LLM 不删除，只修内部 JSON 语法（括号/引号/op 名/字段完整性），不改 path/value 语义。MVU 在 LLM 修复前已解析落盘，改变量块不影响已存变量。
+- **思考内容**：LLM 不修改（`</think>` 之前），由 detag 管；指纹含思考文字，LLM 若违规改思考会被拒绝。
+
+### 依赖
+- 装了**酒馆助手**（JS-Slash-Runner）：用其 `generateRaw` 走独立连接 + `json_schema` 约束输出（推荐）。
+- 未装酒馆助手：回退 ST 原生 `generateRaw`（无 json_schema，靠 prompt + 指纹校验兜底）。
+
 ## 兼容性
 
 - **MVU**：排在 `VARIABLE_UPDATE_ENDED` 之后，不会被 MVU 的 `setChatMessages` 覆盖。MVU 用 `_.set()` 存变量，不回溯重解析历史消息，去 tag 不影响变量正确性。
