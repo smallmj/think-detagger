@@ -113,6 +113,13 @@ ok(!d4.issues.some(s => s.includes('json_patch 语法错误')), 'CLEAN 无 json 
     const d7 = detectIssues(SELF, ['think', 'thinking'], ['now_plot', 'StatusPlaceHolderImpl'], 'now_plot');
     ok(!d7.issues.some(s => s.includes('不平衡')), '自闭合 tag 不影响平衡');
 }
+{
+    // think 内的未知 tag/落单代码围栏不应触发 LLM（detectIssues 剥离 think）
+    const T = '<think>思 <weird_tag>x</weird_tag> ```code </think>\n<now_plot>正文</now_plot>';
+    const d8 = detectIssues(T, ['think', 'thinking'], ['now_plot'], 'now_plot');
+    ok(!d8.issues.some(s => s.includes('未知 tag')), 'think 内未知 tag 不报');
+    ok(!d8.issues.some(s => s.includes('代码块未配对')), 'think 内落单围栏不报');
+}
 
 console.log('\n== extractFormatRequirements ==');
 const fr1 = extractFormatRequirements({
@@ -214,6 +221,19 @@ console.log('\n== ruleFixStructure ==');
     ok(dOpen > npClose, 'details 移到 now_plot 外');
     const di = detectIssues(r.text, ['think', 'thinking'], ['now_plot'], 'now_plot');
     ok(!di.issues.some(s => s.includes('不平衡')), '修后无不平衡');
+}
+{
+    // H4: 有开标签无闭标签 -> 不双重包裹
+    const r = ruleFixStructure('思</think>\n<now_plot>正文\n<summary>摘要</summary>', 'now_plot', ['think', 'thinking']);
+    const openCount = (r.text.match(/<now_plot\b[^>]*>/gi) || []).length;
+    ok(openCount <= 1, '有开标签不双重包裹');
+}
+{
+    // H5: 大小写不一的 plotTag 闭标签也能修正跨越
+    const r = ruleFixStructure('<think>s</think>\n<NOW_PLOT>\n<content>文</content>\n<details>\n</NOW_PLOT>\n<summary>x</summary>\n</details>', 'NOW_PLOT', ['think', 'thinking']);
+    ok(r.changed, '大小写 plotTag 跨越修正 changed');
+    const di2 = detectIssues(r.text, ['think', 'thinking'], ['NOW_PLOT'], 'NOW_PLOT');
+    ok(!di2.issues.some(s => s.includes('不平衡')), '大小写 plotTag 修后无不平衡');
 }
 
 console.log(`\n== 结果: ${passed} passed, ${failed} failed ==`);

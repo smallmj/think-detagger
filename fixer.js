@@ -52,10 +52,19 @@ export function detectIssues(text, thinkTags = BOUNDARY_TAGS, knownTags = [], pl
     const issues = [];
     if (!text) return { hasIssues: false, issues };
 
+    // 剥离 think 区内容（保留 </think> 锚点），避免 think 内问题（未知 tag/落单代码围栏/json_patch 语法错）
+    // 触发不可修的 LLM 询问（LLM 被禁止改 think，指纹也保护 think）
+    const thinkRegions = findThinkRegions(text, thinkTags);
+    let t = text;
+    for (let i = thinkRegions.length - 1; i >= 0; i--) {
+        const r = thinkRegions[i];
+        t = t.slice(0, r.contentStart) + t.slice(r.contentEnd);
+    }
+
     const plotName = escapeRegExp(plotTag || 'now_plot');
     const plotRe = new RegExp(`<${plotName}>([\\s\\S]*?)</${plotName}>`, 'i');
     // 1. 正文容器缺失或为空
-    const plotMatch = text.match(plotRe);
+    const plotMatch = t.match(plotRe);
     if (!plotMatch) {
         issues.push(`${plotTag} 缺失`);
     } else if (!plotMatch[1].trim()) {
@@ -64,23 +73,22 @@ export function detectIssues(text, thinkTags = BOUNDARY_TAGS, knownTags = [], pl
 
     // 2. 正文在容器外：容器为空时，检查 </think> 后是否有大段正文
     if (plotMatch && !plotMatch[1].trim()) {
-        const afterThink = text.replace(/[\s\S]*?<\/think>/i, '');
-        // 剥离变量块/生图/各种结构 tag 后，剩余纯叙事文字长度
+        const afterThink = t.replace(/[\s\S]*?<\/think>/i, '');
         const narrative = stripNonNarrative(afterThink, thinkTags)
             .replace(/<[^>]*>/g, '')
             .replace(/\s/g, '');
         if (narrative.length > 50) issues.push(`正文在 ${plotTag} 外`);
     }
 
-    // 3. 代码块未配对
-    const codeFences = (text.match(/```/g) || []).length;
+    // 3. 代码块未配对（仅正文区，think 已剥离）
+    const codeFences = (t.match(/```/g) || []).length;
     if (codeFences % 2 !== 0) issues.push('代码块未配对');
 
-    // 4. 变量块 JSON 语法错
+    // 4. 变量块 JSON 语法错（仅正文区）
     const jsonPatchRe = /<json_patch>([\s\S]*?)<\/json_patch>/gi;
     let jm;
     let jsonBad = false;
-    while ((jm = jsonPatchRe.exec(text)) !== null) {
+    while ((jm = jsonPatchRe.exec(t)) !== null) {
         const inner = jm[1].trim();
         if (!inner) continue;
         try {
@@ -92,12 +100,12 @@ export function detectIssues(text, thinkTags = BOUNDARY_TAGS, knownTags = [], pl
     }
     if (jsonBad) issues.push('json_patch 语法错误');
 
-    // 5. 未知 tag（思考区 + 正文区残留非白名单 tag）
-    const unknown = findUnknownTags(text, thinkTags, knownTags, SAFE_HTML_TAGS);
+    // 5. 未知 tag（think 已剥离，此处针对正文区残留；think 未知 tag 由 detag 白名单流程处理）
+    const unknown = findUnknownTags(t, thinkTags, knownTags, SAFE_HTML_TAGS);
     if (unknown.length > 0) issues.push(`未知 tag: ${unknown.join(', ')}`);
 
-    // 6. plotTag 内 tag 开闭不平衡（嵌套跨越边界，如 <details> 开在内闭在外）
-    for (const ni of checkPlotNesting(text, plotTag)) issues.push(ni);
+    // 6. plotTag 内 tag 开闭不平衡（嵌套跨越边界）
+    for (const ni of checkPlotNesting(t, plotTag)) issues.push(ni);
 
     return { hasIssues: issues.length > 0, issues };
 }
@@ -309,8 +317,8 @@ function evictPlotCodeFences(text, plotTag) {
 // 已有 plotTag 对 / 无思考闭标签 / 无锚点 -> 不处理（交给 LLM），避免误伤。
 function rewrapPlot(text, plotTag, thinkTags) {
     const name = escapeRegExp(plotTag);
-    const hasPair = new RegExp(`<\\s*${name}\\s*>[\\s\\S]*<\\s*\\/\\s*${name}\\s*>`, 'i').test(text);
-    if (hasPair) return text;
+    const hasOpen = new RegExp(`<\\s*${name}\\b[^>]*>`, 'i').test(text);
+    if (hasOpen) return text; // 已有开标签（含未闭合）不重包裹，避免双重包裹
     const thinkNames = thinkTags.map(escapeRegExp).join('|');
     const thinkCloseRe = new RegExp(`<\\/\\s*(?:${thinkNames})\\s*>`, 'i');
     const thinkMatch = text.match(thinkCloseRe);
@@ -355,9 +363,17 @@ function fixCrossingTags(text, plotTag) {
                 const closeAbs = openAbs + m[0].length + cm.index;
                 if (closeAbs < range.end) continue; // 闭在内，不跨越
                 // 跨越：找 </plotTag>（在 openAbs 后、range.end 前）
-                const plotCloseStart = result.lastIndexOf(plotClose, range.end - 1);
+                const plotCloseStart = (() => {
+                    const pcRe = new RegExp(`<\\s*/\\s*${escapeRegExp(plotTag)}\\s*>`, 'gi');
+                    let pcm, last = -1;
+                    while ((pcm = pcRe.exec(result)) !== null) {
+                        if (pcm.index >= range.end) break;
+                        if (pcm.index > openAbs) last = pcm.index;
+                    }
+                    return last;
+                })();
                 if (plotCloseStart < 0 || plotCloseStart <= openAbs) break;
-                const plotCloseEnd = plotCloseStart + plotClose.length;
+                const plotCloseEnd = plotCloseStart + result.slice(plotCloseStart).match(new RegExp(`<\\s*/\\s*${escapeRegExp(plotTag)}\\s*>`, 'i'))[0].length;
                 // 删除 </plotTag>（在 openAbs 后，不影响 openAbs）
                 let r = result.slice(0, plotCloseStart) + result.slice(plotCloseEnd);
                 // 在开标签前插入 </plotTag>

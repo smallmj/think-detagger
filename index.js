@@ -74,10 +74,8 @@ function getMvu() {
 }
 
 function getTavernHelper() {
-    // 酒馆助手暴露的全局事件/生成 API（扩展层）
-    if (typeof window !== 'undefined' && window.TavernHelper) return window.TavernHelper;
-    if (typeof window !== 'undefined' && typeof window.generateRaw === 'function') return window;
-    return null;
+    // 只认酒馆助手（TavernHelper）；ST 原生 generateRaw 不算（不支持 custom_api/json_schema）
+    return (typeof window !== 'undefined' && window.TavernHelper) ? window.TavernHelper : null;
 }
 
 function waitForMvu(timeout = 10000) {
@@ -298,21 +296,34 @@ async function callFixLLM(text, thinkTags, plotTag) {
             console.warn(TAG, '酒馆助手 generateRaw 失败，回退 ST', e);
         }
     }
-    // 兜底 ST generateRaw
+    // 兜底：未装酒馆助手时，用 fetch 直接打用户配的 apiUrl（OpenAI 兼容），不走主连接
     try {
-        if (typeof ctx.generateRaw !== 'function') {
-            console.warn(TAG, 'ST generateRaw 不可用');
+        if (!conn.apiUrl) {
+            console.warn(TAG, '未装酒馆助手且未配置独立修复连接');
+            toast('未装酒馆助手，需配置独立修复连接（API URL/Key/Model）才能用 LLM 修复', 'warning');
             return null;
         }
-        const out = await withTimeout(ctx.generateRaw({
-            prompt: user,
-            systemPrompt: system,
-            api: 'openai',
-            responseLength: maxTokens,
+        const chatUrl = conn.apiUrl.replace(/\/+$/, '').replace(/\/models$/, '') + '/chat/completions';
+        const res = await withTimeout(fetch(chatUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(conn.apiKey ? { 'Authorization': `Bearer ${conn.apiKey}` } : {}),
+            },
+            body: JSON.stringify({
+                model: conn.model,
+                messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+                max_tokens: maxTokens,
+                temperature: conn.temperature ?? 0.2,
+            }),
         }), timeout);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const out = data.choices?.[0]?.message?.content || '';
         return parseFixResult(out);
     } catch (e) {
-        console.error(TAG, 'ST generateRaw 失败', e);
+        console.error(TAG, 'fetch 兜底失败（可能 CORS 或连接配置错）', e);
+        toast('LLM 修复请求失败：' + (e?.message || e) + '（检查 API URL/Key/Model 或 CORS）', 'error');
         return null;
     }
 }
@@ -946,6 +957,8 @@ jQuery(async () => {
         ctx.eventSource.on(ctx.eventTypes.CHAT_CHANGED, () => {
             cachedWiEntries = [];
             cachedPresetPrompts = [];
+            lastNotifiedMessageId = -1; // 切聊天后重置，避免新聊天同 id 消息不被询问
+            clearTimeout(pendingTimer); // 取消待执行的防抖调用，避免在新区误触发
             if (document.getElementById('td_wi_list')) { loadWorldInfoEntriesForUI(); renderWiList(document.getElementById('td_wi_search')?.value || ''); }
             if (document.getElementById('td_preset_list')) { loadPresetPromptsForUI(); renderPresetList(document.getElementById('td_preset_search')?.value || ''); }
         });

@@ -96,8 +96,8 @@ export function findThinkRegions(text, thinkTags = BOUNDARY_TAGS) {
     const regions = [];
     if (!text || !thinkTags || thinkTags.length === 0) return regions;
     const names = thinkTags.map(escapeRegExp).join('|');
-    const closeRe = new RegExp(`</(${names})>`, 'gi');
-    const openRe = new RegExp(`<(${names})>`, 'gi');
+    const closeRe = new RegExp(`</\\s*(${names})\\s*>`, 'gi');
+    const openRe = new RegExp(`<(${names})\\b[^>]*>`, 'gi');
     let searchFrom = 0;
     let cm;
     while ((cm = closeRe.exec(text)) !== null) {

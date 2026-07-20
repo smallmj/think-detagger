@@ -69,6 +69,9 @@ eq(openFlags('A部分</think> 中间 <think>C部分</think> 后')[1], true, '多
 eq(contents('<thinking>xyz</thinking>')[0], 'xyz', 'thinking 标签识别');
 eq(contents('xyz</thinking>')[0], 'xyz', 'thinking 仅收尾');
 eq(contents('<THINK>up</THINK>')[0], 'up', '大小写不敏感');
+eq(contents('<think attr="x">abc</think>')[0], 'abc', '带属性 think 开标签');
+eq(contents('abc</think >')[0], 'abc', '带空白 think 闭标签');
+eq(contents('abc</thinking\t>')[0], 'abc', '带制表符 thinking 闭标签');
 
 console.log('\n== detagMes ==');
 eq(detagMes('<think>推演 <now_plot>教堂</now_plot></think>正文', TAGS).mes,
