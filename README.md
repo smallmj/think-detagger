@@ -1,4 +1,4 @@
-# Think Detagger (思考去tag化)
+# 格式助手
 
 一个 SillyTavern（酒馆）扩展：在每轮对话接收完整（含 MVU 变量解析、额外模型生成）之后，自动把模型输出中思考内容里的"危险 tag"去掉 `<>`（如 `<now_plot>` -> `now_plot`），保留文字内容，防止酒馆助手 / 浏览器把未知 tag 当 HTML 解析而破坏渲染。
 
@@ -15,10 +15,10 @@
 在酒馆中：**扩展 (Extensions) -> 安装扩展 (Install Extension)**，输入本仓库的 GitHub 地址：
 
 ```
-https://github.com/smallmj/think-detagger
+https://github.com/smallmj/format-assistant
 ```
 
-安装后刷新页面，在扩展设置里找到 **Think Detagger**。
+安装后刷新页面，在扩展设置里找到 **格式助手**。
 
 > 仓库根目录即插件目录（`manifest.json` / `index.js` 在根），酒馆 clone 后直接作为第三方扩展加载。
 

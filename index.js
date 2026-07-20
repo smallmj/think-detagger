@@ -1,4 +1,4 @@
-// think-detagger - SillyTavern 扩展入口
+// 格式助手 (format-assistant) - SillyTavern 扩展入口
 // detag（思考区 tag 防 <>）+ LLM 格式修复（正文区结构/变量块内部语法）两级接力。
 //
 // 触发（只处理最近一条 AI 回复）：
@@ -163,7 +163,7 @@ async function processMessage(messageId, { force = false, forceFix = false, skip
                 } else if (lastNotifiedMessageId !== messageId) {
                     // 自动：先询问，确认才修复（谨慎）
                     lastNotifiedMessageId = messageId;
-                    const ok = confirm(`Think Detagger：发现可能格式问题：\n${issues.issues.join('\n')}\n\n是否执行 LLM 修复？`);
+                    const ok = confirm(`格式助手：发现可能格式问题：\n${issues.issues.join('\n')}\n\n是否执行 LLM 修复？`);
                     if (ok) await llmFixMessage(messageId, thinkTags, plotTag);
                 }
             } else if (forceFix) {
@@ -487,7 +487,7 @@ async function processLatestMessage() {
         let addedTags = [];
         if (unknown.length > 0) {
             const list = unknown.map(t => `<${t}>`).join('  ');
-            if (confirm(`Think Detagger 发现思考内容中存在但未在危险名单的 tag：\n${list}\n\n是否将它们加入白名单并重新处理？`)) {
+            if (confirm(`格式助手 发现思考内容中存在但未在危险名单的 tag：\n${list}\n\n是否将它们加入白名单并重新处理？`)) {
                 settings.tags = [...new Set([...knownTags, ...unknown])];
                 saveSettings();
                 const r2 = await processMessage(idx, { force: true, skipFix: true });
@@ -554,7 +554,7 @@ function ensureFloatingBall() {
     const ball = document.createElement('div');
     ball.id = 'td_floating_ball';
     ball.className = 'td-floating-ball';
-    ball.title = 'Think Detagger\n左半：去标签 / 右半：LLM修复 / 拖动：移动';
+    ball.title = '格式助手\n左半：去标签 / 右半：LLM修复 / 拖动：移动';
     ball.innerHTML = `
         <div class="td-ball-half td-ball-left" data-action="detag" title="去标签（最近一条）">去标</div>
         <div class="td-ball-half td-ball-right" data-action="fix" title="LLM 修复格式（最近一条）">修复</div>
@@ -615,7 +615,7 @@ function renderSettingsPanel() {
     wrap.innerHTML = `
         <div class="inline-drawer">
             <div class="inline-drawer-toggle inline-drawer-header">
-                <b>Think Detagger (思考去tag化)</b>
+                <b>格式助手</b>
                 <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
             </div>
             <div class="inline-drawer-content">
@@ -875,5 +875,5 @@ jQuery(async () => {
         });
     } catch (e) { console.warn(TAG, '注册 CHAT_CHANGED 失败', e); }
 
-    console.log(TAG, '已加载 v0.4.0');
+    console.log(TAG, '已加载 v1.0.0');
 });

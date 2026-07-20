@@ -1,7 +1,7 @@
 // core.js - 纯逻辑，不依赖 SillyTavern，便于 node 单元测试。
 // 负责：危险 tag 白名单、思考区段定位、去尖括号、残留未知 tag 扫描。
 
-export const MODULE_NAME = 'think-detagger';
+export const MODULE_NAME = 'format-assistant';
 
 // 边界标签：用于切分思考区段，本身不去 <>（保留折叠结构）。
 export const BOUNDARY_TAGS = ['think', 'thinking'];
