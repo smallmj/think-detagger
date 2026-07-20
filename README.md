@@ -75,6 +75,8 @@ action, summary, DiceCombat, disclaimer, pic, thought, reasoning
 - 设置面板"立即处理最近一条"按钮
 - 斜杠命令 `/detag`
 
+手动触发后会给出详细提示：列出本次去掉了哪些 tag 的尖括号，或提示"无需处理"。此外会自动扫描思考内容中**存在但未在危险名单**的 tag（排除 `<b>`/`<i>` 等常见合法 HTML），弹窗询问是否加入白名单并自动重新处理一遍。
+
 ## 兼容性
 
 - **MVU**：排在 `VARIABLE_UPDATE_ENDED` 之后，不会被 MVU 的 `setChatMessages` 覆盖。MVU 用 `_.set()` 存变量，不回溯重解析历史消息，去 tag 不影响变量正确性。
