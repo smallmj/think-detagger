@@ -96,6 +96,23 @@ const CLEAN = `<think>思考</think>
 const d4 = detectIssues(CLEAN);
 ok(!d4.issues.some(s => s.includes('now_plot 为空') || s.includes('正文在 now_plot 外')), 'CLEAN 无 now_plot/正文位置问题');
 ok(!d4.issues.some(s => s.includes('json_patch 语法错误')), 'CLEAN 无 json 语法问题');
+// 嵌套跨越检测
+{
+    const NEST = '<think>s</think>\n<now_plot>\n<content>文</content>\n<details>\n</now_plot>\n<summary>x</summary>\n</details>';
+    const d5 = detectIssues(NEST, ['think', 'thinking'], ['now_plot'], 'now_plot');
+    ok(d5.hasIssues, 'details 跨越 now_plot 检出问题');
+    ok(d5.issues.some(s => s.includes('details') && s.includes('不平衡')), '报 details 不平衡');
+}
+{
+    const BAL = '<think>s</think>\n<now_plot>\n<content>文</content>\n<details>x</details>\n</now_plot>';
+    const d6 = detectIssues(BAL, ['think', 'thinking'], ['now_plot'], 'now_plot');
+    ok(!d6.issues.some(s => s.includes('不平衡')), '正常嵌套无不平衡');
+}
+{
+    const SELF = '<think>s</think>\n<now_plot>\n文<StatusPlaceHolderImpl/>\n</now_plot>';
+    const d7 = detectIssues(SELF, ['think', 'thinking'], ['now_plot', 'StatusPlaceHolderImpl'], 'now_plot');
+    ok(!d7.issues.some(s => s.includes('不平衡')), '自闭合 tag 不影响平衡');
+}
 
 console.log('\n== extractFormatRequirements ==');
 const fr1 = extractFormatRequirements({

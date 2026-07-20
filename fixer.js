@@ -96,7 +96,40 @@ export function detectIssues(text, thinkTags = BOUNDARY_TAGS, knownTags = [], pl
     const unknown = findUnknownTags(text, thinkTags, knownTags, SAFE_HTML_TAGS);
     if (unknown.length > 0) issues.push(`未知 tag: ${unknown.join(', ')}`);
 
+    // 6. plotTag 内 tag 开闭不平衡（嵌套跨越边界，如 <details> 开在内闭在外）
+    for (const ni of checkPlotNesting(text, plotTag)) issues.push(ni);
+
     return { hasIssues: issues.length > 0, issues };
+}
+
+// 检测 plotTag 范围内各 tag 开闭是否平衡（不平衡 = 有 tag 跨越 plotTag 边界）
+function checkPlotNesting(text, plotTag) {
+    const ranges = getPlotTagRanges(text, plotTag);
+    const issues = [];
+    for (const range of ranges) {
+        const inner = text.slice(range.start, range.end);
+        // 自闭合 tag 位置（不计入开闭）
+        const selfClose = [];
+        const scRe = /<[A-Za-z\u4e00-\u9fa5][\w:-]*\b[^>]*\/>/g;
+        let sc;
+        while ((sc = scRe.exec(inner)) !== null) selfClose.push([sc.index, sc.index + sc[0].length]);
+        const isSelf = (idx) => selfClose.some(([s, e]) => idx >= s && idx < e);
+        const openC = {}, closeC = {};
+        const tagRe = /<(\/?)([A-Za-z\u4e00-\u9fa5][\w:-]*)\b[^>]*>/g;
+        let m;
+        while ((m = tagRe.exec(inner)) !== null) {
+            if (isSelf(m.index)) continue;
+            const name = m[2].toLowerCase();
+            if (m[1] === '/') closeC[name] = (closeC[name] || 0) + 1;
+            else openC[name] = (openC[name] || 0) + 1;
+        }
+        for (const name of new Set([...Object.keys(openC), ...Object.keys(closeC)])) {
+            if ((openC[name] || 0) !== (closeC[name] || 0)) {
+                issues.push(`<${name}> 在 ${plotTag} 内开闭不平衡(开${openC[name] || 0}/闭${closeC[name] || 0})，可能跨越边界`);
+            }
+        }
+    }
+    return issues;
 }
 
 /**
