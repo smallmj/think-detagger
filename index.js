@@ -221,11 +221,22 @@ function parseFixResult(result) {
 }
 
 async function callFixLLM(text, thinkTags, plotTag) {
+    const ctx = getCtx();
     const settings = getSettings();
     const formatReq = buildFormatRequirements();
     const { system, user, jsonSchema } = buildFixPrompt({ originalText: text, formatRequirements: formatReq, thinkTags, plotTag });
     const conn = settings.fixConnection || {};
     const timeout = (settings.fixTimeout || 60) * 1000;
+
+    // 动态放大 max_tokens：整文重写输出 ≈ 原文长度，需保证不截断
+    let inputTokens = Math.ceil(text.length / 2); // 兜底估算（中文约 2 字/token）
+    try {
+        if (typeof ctx.getTokenCountAsync === 'function') {
+            inputTokens = await ctx.getTokenCountAsync(text);
+        }
+    } catch {}
+    const needMax = Math.min(Math.ceil(inputTokens * 1.3) + 256, 32768);
+    const maxTokens = Math.max(Number(conn.maxTokens) || 8192, needMax);
 
     // 优先酒馆助手 generateRaw（独立连接 + json_schema）
     const helper = getTavernHelper();
@@ -240,7 +251,7 @@ async function callFixLLM(text, thinkTags, plotTag) {
                 key: conn.apiKey,
                 model: conn.model,
                 source: 'custom',
-                max_tokens: conn.maxTokens || 2048,
+                max_tokens: maxTokens,
                 temperature: conn.temperature ?? 0.2,
             } : undefined;
             const out = await withTimeout(helper.generateRaw({
@@ -256,7 +267,6 @@ async function callFixLLM(text, thinkTags, plotTag) {
     }
     // 兜底 ST generateRaw
     try {
-        const ctx = getCtx();
         if (typeof ctx.generateRaw !== 'function') {
             console.warn(TAG, 'ST generateRaw 不可用');
             return null;
@@ -265,7 +275,7 @@ async function callFixLLM(text, thinkTags, plotTag) {
             prompt: user,
             systemPrompt: system,
             api: 'openai',
-            responseLength: conn.maxTokens || 2048,
+            responseLength: maxTokens,
         }), timeout);
         return parseFixResult(out);
     } catch (e) {
@@ -592,8 +602,8 @@ function renderSettingsPanel() {
                     <input type="text" id="td_fix_key" placeholder="API Key" value="${settings.fixConnection?.apiKey || ''}" class="td_input">
                     <input type="text" id="td_fix_model" placeholder="模型名，如 gemini-2.5-flash" value="${settings.fixConnection?.model || ''}" class="td_input">
                     <div class="td_row">
-                        <label for="td_fix_maxtok"><small>max_tokens（最大输出长度，建议 1024-4096）</small></label>
-                        <input type="number" id="td_fix_maxtok" min="256" max="32768" step="256" value="${settings.fixConnection?.maxTokens ?? 2048}" class="td_number">
+                        <label for="td_fix_maxtok"><small>max_tokens（最大输出长度；整文重写需 ≥ 主对话回复长度，默认 8192，会按原文长度自动放大）</small></label>
+                        <input type="number" id="td_fix_maxtok" min="256" max="32768" step="256" value="${settings.fixConnection?.maxTokens ?? 8192}" class="td_number">
                     </div>
                     <div class="td_row">
                         <label for="td_fix_temp"><small>temperature（温度：0 最稳定，越高越发散；修格式建议 0-0.3）</small></label>

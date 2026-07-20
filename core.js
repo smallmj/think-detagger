@@ -48,7 +48,7 @@ export function getDefaultSettings() {
             apiUrl: '',
             apiKey: '',
             model: '',
-            maxTokens: 2048,
+            maxTokens: 8192,
             temperature: 0.2,
         },
         formatSource: {
