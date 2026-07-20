@@ -177,17 +177,15 @@ async function processMessage(messageId, { force = false, forceFix = false, skip
         if (doLlmFix && !is_fixing && msg.mes) {
             const issues = detectIssues(msg.mes, thinkTags, tags, plotTag);
             if (issues.hasIssues) {
-                if (forceFix) {
-                    // 手动：直接进入 LLM 修复（含 diff 确认窗口）
-                    await llmFixMessage(messageId, thinkTags, plotTag);
-                } else if (lastNotifiedMessageId !== messageId) {
-                    // 自动：先询问，确认才修复（谨慎）
-                    lastNotifiedMessageId = messageId;
+                // 手动总是询问；自动仅未询问过才询问（防重复打扰）
+                const shouldAsk = forceFix || lastNotifiedMessageId !== messageId;
+                if (shouldAsk) {
+                    if (!forceFix) lastNotifiedMessageId = messageId;
                     const ok = confirm(`格式助手：发现可能格式问题：\n${issues.issues.join('\n')}\n\n是否执行 LLM 修复？`);
                     if (ok) await llmFixMessage(messageId, thinkTags, plotTag);
                 }
             } else if (forceFix) {
-                toast('未检测到格式问题，无需 LLM 修复');
+                toast('规则修复后未检测到格式问题，无需 LLM 修复');
             }
         }
 
