@@ -48,26 +48,28 @@ export function contentFingerprint(text, thinkTags = BOUNDARY_TAGS) {
 /**
  * 检测正文区结构格式问题。返回 { hasIssues, issues[] }。
  */
-export function detectIssues(text, thinkTags = BOUNDARY_TAGS, knownTags = []) {
+export function detectIssues(text, thinkTags = BOUNDARY_TAGS, knownTags = [], plotTag = 'now_plot') {
     const issues = [];
     if (!text) return { hasIssues: false, issues };
 
-    // 1. now_plot 缺失或为空
-    const nowPlotMatch = text.match(/<now_plot>([\s\S]*?)<\/now_plot>/i);
-    if (!nowPlotMatch) {
-        issues.push('now_plot 缺失');
-    } else if (!nowPlotMatch[1].trim()) {
-        issues.push('now_plot 为空');
+    const plotName = escapeRegExp(plotTag || 'now_plot');
+    const plotRe = new RegExp(`<${plotName}>([\\s\\S]*?)</${plotName}>`, 'i');
+    // 1. 正文容器缺失或为空
+    const plotMatch = text.match(plotRe);
+    if (!plotMatch) {
+        issues.push(`${plotTag} 缺失`);
+    } else if (!plotMatch[1].trim()) {
+        issues.push(`${plotTag} 为空`);
     }
 
-    // 2. 正文在 now_plot 外：now_plot 为空时，检查 </think> 后是否有大段正文
-    if (nowPlotMatch && !nowPlotMatch[1].trim()) {
+    // 2. 正文在容器外：容器为空时，检查 </think> 后是否有大段正文
+    if (plotMatch && !plotMatch[1].trim()) {
         const afterThink = text.replace(/[\s\S]*?<\/think>/i, '');
         // 剥离变量块/生图/各种结构 tag 后，剩余纯叙事文字长度
         const narrative = stripNonNarrative(afterThink, thinkTags)
             .replace(/<[^>]*>/g, '')
             .replace(/\s/g, '');
-        if (narrative.length > 50) issues.push('正文在 now_plot 外');
+        if (narrative.length > 50) issues.push(`正文在 ${plotTag} 外`);
     }
 
     // 3. 代码块未配对
@@ -128,12 +130,13 @@ export function extractFormatRequirements({
 /**
  * 构造修复 LLM 的 system/user/jsonSchema。
  */
-export function buildFixPrompt({ originalText, formatRequirements, thinkTags = BOUNDARY_TAGS }) {
+export function buildFixPrompt({ originalText, formatRequirements, thinkTags = BOUNDARY_TAGS, plotTag = 'now_plot' }) {
     const thinkNames = thinkTags.join(' / ');
+    const plot = plotTag || 'now_plot';
     const system = `你是一个格式修复器。给定角色扮演 AI 的原始输出和格式要求，你只修复格式问题，绝不改正文叙事文字的内容和措辞。
 
 修复规则：
-1. 把写在 <now_plot> 外的正文叙事移入 <now_plot>...</now_plot> 内；Optional 模组（如 DiceCombat/Initiative/DiceCheck/EnemyOverview/SummonOverview/ExperienceLog/LootLog/QuestContract/CombatSnapshot 等）插入正文合适位置，不堆在末尾。
+1. 把写在 <${plot}> 外的正文叙事移入 <${plot}>...</${plot}> 内；Optional 模组（如 DiceCombat/Initiative/DiceCheck/EnemyOverview/SummonOverview/ExperienceLog/LootLog/QuestContract/CombatSnapshot 等）插入正文合适位置，不堆在末尾。
 2. 保留所有变量更新块（<UpdateVariable>/<update>/<json_patch>/<update_analysis>）不删除；可修改变量块内部的 JSON 语法错误（括号/引号/op 名/字段完整性），但不改变量的 path 和 value 的语义值。
 3. 保留 <image>...</image> 与 <pic>...</pic> 生图 tag 原样不动。
 4. 不修改思考内容（</think> 之前的部分；思考边界标签 ${thinkNames} 保留）。

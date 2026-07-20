@@ -152,9 +152,10 @@ async function processMessage(messageId, { force = false, forceFix = false, skip
         else doLlmFix = settings.llmFixEnabled && settings.autoFix;
 
         if (doLlmFix && !is_fixing && msg.mes) {
-            const issues = detectIssues(msg.mes, thinkTags, tags);
+            const plotTag = settings.plotTag || 'now_plot';
+            const issues = detectIssues(msg.mes, thinkTags, tags, plotTag);
             if (issues.hasIssues) {
-                await llmFixMessage(messageId, thinkTags);
+                await llmFixMessage(messageId, thinkTags, plotTag);
             }
         }
 
@@ -166,7 +167,7 @@ async function processMessage(messageId, { force = false, forceFix = false, skip
 }
 
 // ---------- LLM 修复 ----------
-async function llmFixMessage(messageId, thinkTags) {
+async function llmFixMessage(messageId, thinkTags, plotTag) {
     const ctx = getCtx();
     const chat = ctx.chat;
     const msg = chat[messageId];
@@ -180,7 +181,7 @@ async function llmFixMessage(messageId, thinkTags) {
         }
         const fp1 = contentFingerprint(msg.mes, thinkTags);
         toast('LLM 修复中…');
-        const result = await callFixLLM(msg.mes, thinkTags);
+        const result = await callFixLLM(msg.mes, thinkTags, plotTag);
         if (!result) { toast('LLM 修复失败，已保留原文', 'warning'); return; }
         if (!result.changed || !result.fixed_text) { toast('LLM 修复：无需改动'); return; }
         const fp2 = contentFingerprint(result.fixed_text, thinkTags);
@@ -219,10 +220,10 @@ function parseFixResult(result) {
     return null;
 }
 
-async function callFixLLM(text, thinkTags) {
+async function callFixLLM(text, thinkTags, plotTag) {
     const settings = getSettings();
     const formatReq = buildFormatRequirements();
-    const { system, user, jsonSchema } = buildFixPrompt({ originalText: text, formatRequirements: formatReq, thinkTags });
+    const { system, user, jsonSchema } = buildFixPrompt({ originalText: text, formatRequirements: formatReq, thinkTags, plotTag });
     const conn = settings.fixConnection || {};
     const timeout = (settings.fixTimeout || 60) * 1000;
 
@@ -560,6 +561,10 @@ function renderSettingsPanel() {
                     <label for="td_think_tags"><small>思考内容标签（边界标签，一行一个；如 think / thinking / reasoning / cot）</small></label>
                     <textarea id="td_think_tags" rows="3" class="td_textarea">${(settings.thinkTags || []).join('\n')}</textarea>
                 </div>
+                <div class="td_section td_row">
+                    <label for="td_plot_tag"><small>正文容器标签（默认 now_plot；若预设用别的标签如 story/正文，填这里）</small></label>
+                    <input type="text" id="td_plot_tag" value="${settings.plotTag || 'now_plot'}" class="td_input" style="max-width:180px">
+                </div>
                 <div class="td_section">
                     <label for="td_tags"><small>危险 tag 白名单（一行一个）</small></label>
                     <textarea id="td_tags" rows="8" class="td_textarea">${(settings.tags || []).join('\n')}</textarea>
@@ -587,8 +592,12 @@ function renderSettingsPanel() {
                     <input type="text" id="td_fix_key" placeholder="API Key" value="${settings.fixConnection?.apiKey || ''}" class="td_input">
                     <input type="text" id="td_fix_model" placeholder="模型名，如 gemini-2.5-flash" value="${settings.fixConnection?.model || ''}" class="td_input">
                     <div class="td_row">
-                        <input type="number" id="td_fix_maxtok" placeholder="max_tokens" min="256" max="32768" step="256" value="${settings.fixConnection?.maxTokens ?? 2048}" class="td_number">
-                        <input type="number" id="td_fix_temp" placeholder="temperature" min="0" max="2" step="0.1" value="${settings.fixConnection?.temperature ?? 0.2}" class="td_number">
+                        <label for="td_fix_maxtok"><small>max_tokens（最大输出长度，建议 1024-4096）</small></label>
+                        <input type="number" id="td_fix_maxtok" min="256" max="32768" step="256" value="${settings.fixConnection?.maxTokens ?? 2048}" class="td_number">
+                    </div>
+                    <div class="td_row">
+                        <label for="td_fix_temp"><small>temperature（温度：0 最稳定，越高越发散；修格式建议 0-0.3）</small></label>
+                        <input type="number" id="td_fix_temp" min="0" max="2" step="0.1" value="${settings.fixConnection?.temperature ?? 0.2}" class="td_number">
                     </div>
                 </div>
                 <div class="td_section">
@@ -596,11 +605,13 @@ function renderSettingsPanel() {
                     <label class="checkbox_label"><input type="checkbox" id="td_use_wi" ${settings.formatSource?.useWorldInfo ? 'checked' : ''}><span>使用世界书条目</span></label>
                     <div id="td_wi_list_wrap" class="td_list_wrap" style="display:${settings.formatSource?.useWorldInfo ? 'block' : 'none'}">
                         <div class="td_row"><div class="menu_button menu_button_small" id="td_wi_refresh">刷新世界书条目</div></div>
+                        <input type="text" id="td_wi_search" placeholder="搜索条目（comment/内容）…" class="td_input">
                         <div id="td_wi_list" class="td_checklist"></div>
                     </div>
                     <label class="checkbox_label"><input type="checkbox" id="td_use_preset" ${settings.formatSource?.usePreset ? 'checked' : ''}><span>使用预设 prompt</span></label>
                     <div id="td_preset_list_wrap" class="td_list_wrap" style="display:${settings.formatSource?.usePreset ? 'block' : 'none'}">
                         <div class="td_row"><div class="menu_button menu_button_small" id="td_preset_refresh">刷新预设 prompt</div></div>
+                        <input type="text" id="td_preset_search" placeholder="搜索 prompt（name/内容）…" class="td_input">
                         <div id="td_preset_list" class="td_checklist"></div>
                     </div>
                     <label class="checkbox_label"><input type="checkbox" id="td_use_manual" ${settings.formatSource?.useManual ? 'checked' : ''}><span>使用手动填写</span></label>
@@ -626,6 +637,7 @@ function renderSettingsPanel() {
         s.thinkTags = $('td_think_tags').value.split('\n').map(t => t.trim()).filter(Boolean);
         s.tags = $('td_tags').value.split('\n').map(t => t.trim()).filter(Boolean);
         s.autoDelay = Number($('td_auto_delay').value) || 0;
+        s.plotTag = $('td_plot_tag').value.trim() || 'now_plot';
         s.llmFixEnabled = !!$('td_llm_fix').checked;
         s.autoFix = !!$('td_auto_fix').checked;
         s.fixTimeout = Number($('td_fix_timeout').value) || 60;
@@ -670,8 +682,10 @@ function renderSettingsPanel() {
         $('td_manual_wrap').style.display = e.target.checked ? 'block' : 'none';
         persist();
     });
-    $('td_wi_refresh').addEventListener('click', () => { loadWorldInfoEntriesForUI(); renderWiList(); });
-    $('td_preset_refresh').addEventListener('click', () => { loadPresetPromptsForUI(); renderPresetList(); });
+    $('td_wi_refresh').addEventListener('click', () => { loadWorldInfoEntriesForUI(); renderWiList($('td_wi_search')?.value || ''); });
+    $('td_preset_refresh').addEventListener('click', () => { loadPresetPromptsForUI(); renderPresetList($('td_preset_search')?.value || ''); });
+    $('td_wi_search').addEventListener('input', (e) => renderWiList(e.target.value));
+    $('td_preset_search').addEventListener('input', (e) => renderPresetList(e.target.value));
 
     // 初次加载列表（若已开启）
     if (settings.formatSource?.useWorldInfo) { loadWorldInfoEntriesForUI(); renderWiList(); }
@@ -684,32 +698,50 @@ function collectChecked(listId) {
     return Array.from(list.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
 }
 
-function renderWiList() {
+function renderWiList(filter = '') {
     const settings = getSettings();
     const selected = new Set(settings.formatSource?.selectedWiUids || []);
     const list = document.getElementById('td_wi_list');
     if (!list) return;
-    if (!cachedWiEntries.length) {
-        list.innerHTML = '<small style="opacity:.7">（无世界书条目，点刷新或检查角色卡/世界书）</small>';
+    let entries = cachedWiEntries;
+    if (filter) {
+        const f = filter.toLowerCase();
+        entries = entries.filter(e =>
+            (e.comment || '').toLowerCase().includes(f) ||
+            (e.content || '').toLowerCase().includes(f) ||
+            (e.source || '').toLowerCase().includes(f)
+        );
+    }
+    if (!entries.length) {
+        list.innerHTML = '<small style="opacity:.7">（无匹配条目，点刷新或检查角色卡/世界书）</small>';
         return;
     }
-    list.innerHTML = cachedWiEntries.map(e => {
+    list.innerHTML = entries.map(e => {
         const preview = (e.content || '').slice(0, 120).replace(/\s+/g, ' ');
         const checked = selected.has(e.uid) ? 'checked' : '';
         return `<label class="td_checkitem"><input type="checkbox" value="${escapeHtml(e.uid)}" ${checked}><span class="td_checktext"><b>[${escapeHtml(e.source)}]</b> ${escapeHtml(e.comment)}<br><small>${escapeHtml(preview)}…</small></span></label>`;
     }).join('');
 }
 
-function renderPresetList() {
+function renderPresetList(filter = '') {
     const settings = getSettings();
     const selected = new Set(settings.formatSource?.selectedPromptIds || []);
     const list = document.getElementById('td_preset_list');
     if (!list) return;
-    if (!cachedPresetPrompts.length) {
-        list.innerHTML = '<small style="opacity:.7">（无预设 prompt，点刷新或检查预设）</small>';
+    let prompts = cachedPresetPrompts;
+    if (filter) {
+        const f = filter.toLowerCase();
+        prompts = prompts.filter(p =>
+            (p.name || '').toLowerCase().includes(f) ||
+            (p.content || '').toLowerCase().includes(f) ||
+            (p.identifier || '').toLowerCase().includes(f)
+        );
+    }
+    if (!prompts.length) {
+        list.innerHTML = '<small style="opacity:.7">（无匹配 prompt，点刷新或检查预设）</small>';
         return;
     }
-    list.innerHTML = cachedPresetPrompts.map(p => {
+    list.innerHTML = prompts.map(p => {
         const preview = (p.content || '').slice(0, 120).replace(/\s+/g, ' ');
         const checked = selected.has(p.identifier) ? 'checked' : '';
         return `<label class="td_checkitem"><input type="checkbox" value="${escapeHtml(p.identifier)}" ${checked}><span class="td_checktext"><b>${escapeHtml(p.name)}</b><br><small>${escapeHtml(preview)}…</small></span></label>`;
@@ -773,8 +805,8 @@ jQuery(async () => {
         ctx.eventSource.on(ctx.eventTypes.CHAT_CHANGED, () => {
             cachedWiEntries = [];
             cachedPresetPrompts = [];
-            if (document.getElementById('td_wi_list')) { loadWorldInfoEntriesForUI(); renderWiList(); }
-            if (document.getElementById('td_preset_list')) { loadPresetPromptsForUI(); renderPresetList(); }
+            if (document.getElementById('td_wi_list')) { loadWorldInfoEntriesForUI(); renderWiList(document.getElementById('td_wi_search')?.value || ''); }
+            if (document.getElementById('td_preset_list')) { loadPresetPromptsForUI(); renderPresetList(document.getElementById('td_preset_search')?.value || ''); }
         });
     } catch (e) { console.warn(TAG, '注册 CHAT_CHANGED 失败', e); }
 

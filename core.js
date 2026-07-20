@@ -39,6 +39,7 @@ export function getDefaultSettings() {
         processReasoning: true,
         showFloatingBall: true,
         autoDelay: 2,
+        plotTag: 'now_plot',
         // LLM 格式修复模块（v0.4.0）
         llmFixEnabled: false,
         autoFix: true,

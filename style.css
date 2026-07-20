@@ -16,7 +16,7 @@
     flex-wrap: wrap;
     align-items: center;
 }
-.think-detagger-settings .td_buttons .menu_button {
+.think-detagger-settings .menu_button {
     flex: 0 0 auto;
     width: auto;
     min-width: 0;
