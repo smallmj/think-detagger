@@ -6,12 +6,15 @@
 //  - 自动模式（enabled）：MVU VARIABLE_UPDATE_ENDED（最精确，立即）+
 //    MESSAGE_RECEIVED / GENERATION_ENDED（防抖延迟 autoDelay 秒，让 MVU 先写回）
 //  - 手动：悬浮球点击 / 设置面板按钮 / 斜杠命令 /detag
+//    手动后会扫描思考区段内残留的未知 tag，提示是否加入白名单并自动重处理。
 // 思考内容边界标签可自定义（thinkTags，默认 think/thinking），支持标准配对与仅收尾。
 // 边界标签本身保留，只对内部白名单 tag 去尖括号。
 
 import {
     detagMes,
     detagReasoning,
+    findUnknownTags,
+    SAFE_HTML_TAGS,
     getDefaultSettings,
     DEFAULT_TAGS,
     BOUNDARY_TAGS,
@@ -31,7 +34,6 @@ function getSettings() {
     if (!ctx.extensionSettings[SETTING_ID]) {
         ctx.extensionSettings[SETTING_ID] = getDefaultSettings();
     }
-    // 兼容老数据 / 补全新字段
     return Object.assign(getDefaultSettings(), ctx.extensionSettings[SETTING_ID]);
 }
 
@@ -67,53 +69,57 @@ function waitForMvu(timeout = 10000) {
 }
 
 // ---------- 核心：处理单条消息 ----------
-function processMessage(messageId) {
+// 返回 { changed, removedTags }。force=true 时跳过 enabled 检查（手动触发用）。
+function processMessage(messageId, { force = false } = {}) {
+    const empty = { changed: false, removedTags: new Set() };
     try {
         const settings = getSettings();
-        if (!settings.enabled) return;
-        if (messageId == null || messageId < 0) return;
+        if (!force && !settings.enabled) return empty;
+        if (messageId == null || messageId < 0) return empty;
 
         const ctx = getCtx();
         const chat = ctx.chat;
-        if (!chat || !chat[messageId]) return;
+        if (!chat || !chat[messageId]) return empty;
 
         const msg = chat[messageId];
-        if (msg.is_user || msg.is_system) return;
+        if (msg.is_user || msg.is_system) return empty;
 
         const tags = settings.tags || DEFAULT_TAGS;
         const thinkTags = settings.thinkTags || BOUNDARY_TAGS;
         let changed = false;
+        const removed = new Set();
 
-        // 1. 处理 mes 里的思考区段（边界标签保留，内部去尖括号）
         if (msg.mes) {
             const r = detagMes(msg.mes, tags, thinkTags);
             if (r.changed) {
                 msg.mes = r.mes;
                 changed = true;
+                for (const t of r.removedTags) removed.add(t);
             }
         }
 
-        // 2. 处理 extra.reasoning（原生 API 思考字段，整段去尖括号）
         if (settings.processReasoning && msg.extra && msg.extra.reasoning) {
             const r = detagReasoning(msg.extra.reasoning, tags);
             if (r.changed) {
                 msg.extra.reasoning = r.reasoning;
                 changed = true;
+                for (const t of r.removedTags) removed.add(t);
             }
         }
 
-        if (!changed) return;
-
-        // 3. 持久化 + 重渲
-        const saveChatDebounced = ctx.saveChatDebounced || window.saveChatDebounced;
-        const updateMessageBlock = ctx.updateMessageBlock || window.updateMessageBlock;
-        if (saveChatDebounced) saveChatDebounced();
-        if (updateMessageBlock) {
-            try { updateMessageBlock(messageId, msg); }
-            catch (e) { console.warn(TAG, 'updateMessageBlock 失败', e); }
+        if (changed) {
+            const saveChatDebounced = ctx.saveChatDebounced || window.saveChatDebounced;
+            const updateMessageBlock = ctx.updateMessageBlock || window.updateMessageBlock;
+            if (saveChatDebounced) saveChatDebounced();
+            if (updateMessageBlock) {
+                try { updateMessageBlock(messageId, msg); }
+                catch (e) { console.warn(TAG, 'updateMessageBlock 失败', e); }
+            }
         }
+        return { changed, removedTags: removed };
     } catch (e) {
         console.error(TAG, 'processMessage 异常', e);
+        return empty;
     }
 }
 
@@ -123,7 +129,6 @@ function scheduleProcess(messageId) {
     const settings = getSettings();
     if (!settings.enabled) return;
     const mvu = getMvu();
-    // 装了 MVU 时延迟，等 MVU（含额外模型）解析并写回；未装则立即
     const delay = mvu ? (Number(settings.autoDelay) || 0) * 1000 : 0;
     clearTimeout(pendingTimer);
     pendingTimer = setTimeout(() => processMessage(messageId), delay);
@@ -134,13 +139,11 @@ function onMessageReceived(messageId) {
 }
 
 function onGenerationEnded() {
-    // GENERATION_ENDED 只传 chat.length；额外模型生成结束也会触发，作为补充
     const chat = getCtx().chat;
     if (chat && chat.length > 0) scheduleProcess(chat.length - 1);
 }
 
 function onVarUpdateEnded(...args) {
-    // MVU 事件：变量已落盘，立即处理（最精确）
     const settings = getSettings();
     if (!settings.enabled) return;
     let messageId = null;
@@ -157,25 +160,67 @@ function onVarUpdateEnded(...args) {
 }
 
 // ---------- 手动：处理最近一条 AI 回复 ----------
+// 返回 { ok, msg }，msg 为详细提示文案。会扫描残留未知 tag 并提示加入白名单+重处理。
 function processLatestMessage() {
     try {
         const ctx = getCtx();
         const chat = ctx.chat;
-        if (!chat || chat.length === 0) return false;
+        if (!chat || chat.length === 0) return { ok: false, msg: '未找到可处理的 AI 消息' };
+        let idx = -1;
         for (let i = chat.length - 1; i >= 0; i--) {
-            const msg = chat[i];
-            if (msg && !msg.is_user && !msg.is_system) {
-                processMessage(i);
-                const saveChatDebounced = ctx.saveChatDebounced || window.saveChatDebounced;
-                if (saveChatDebounced) saveChatDebounced();
-                console.log(TAG, `已处理最近一条 AI 消息 #${i}`);
-                return true;
+            if (chat[i] && !chat[i].is_user && !chat[i].is_system) { idx = i; break; }
+        }
+        if (idx < 0) return { ok: false, msg: '未找到可处理的 AI 消息' };
+
+        // 第一次处理
+        const result = processMessage(idx, { force: true });
+        const removed = new Set(result.removedTags);
+
+        // 扫描思考区段内残留的未知 tag
+        const settings = getSettings();
+        const msgObj = chat[idx];
+        const thinkTags = settings.thinkTags || BOUNDARY_TAGS;
+        const knownTags = settings.tags || DEFAULT_TAGS;
+        let unknown = [];
+        if (msgObj.mes) unknown = findUnknownTags(msgObj.mes, thinkTags, knownTags, SAFE_HTML_TAGS);
+        if (settings.processReasoning && msgObj.extra && msgObj.extra.reasoning) {
+            const u2 = findUnknownTags(msgObj.extra.reasoning, thinkTags, knownTags, SAFE_HTML_TAGS);
+            unknown = [...new Set([...unknown, ...u2])];
+        }
+
+        // 提示是否加入白名单并重处理
+        let addedTags = [];
+        if (unknown.length > 0) {
+            const list = unknown.map(t => `<${t}>`).join('  ');
+            if (confirm(`Think Detagger 发现思考内容中存在但未在危险名单的 tag：\n${list}\n\n是否将它们加入白名单并重新处理？`)) {
+                settings.tags = [...new Set([...knownTags, ...unknown])];
+                saveSettings();
+                const r2 = processMessage(idx, { force: true });
+                for (const t of r2.removedTags) removed.add(t);
+                addedTags = unknown;
+                // 同步设置面板 textarea（若已渲染）
+                const $tags = document.getElementById('td_tags');
+                if ($tags) $tags.value = settings.tags.join('\n');
             }
         }
-        return false;
+
+        const saveChatDebounced = ctx.saveChatDebounced || window.saveChatDebounced;
+        if (saveChatDebounced) saveChatDebounced();
+
+        // 构建详细提示
+        let msg;
+        if (removed.size === 0 && addedTags.length === 0) {
+            msg = `最近一条消息（#${idx}）无需处理：未发现危险 tag`;
+        } else {
+            const parts = [];
+            if (removed.size > 0) parts.push(`去掉以下 tag 的尖括号：${[...removed].join(', ')}`);
+            if (addedTags.length > 0) parts.push(`已新增白名单：${addedTags.join(', ')}`);
+            msg = `已处理最近一条消息（#${idx}）：${parts.join('；')}`;
+        }
+        return { ok: true, msg };
     } catch (e) {
         console.error(TAG, 'processLatestMessage 异常', e);
-        return false;
+        return { ok: false, msg: '处理异常：' + (e && e.message ? e.message : e) };
     }
 }
 
@@ -197,8 +242,8 @@ function ensureFloatingBall() {
     document.body.appendChild(ball);
 
     makeDraggable(ball, () => {
-        const ok = processLatestMessage();
-        toast(ok ? '已处理最近一条消息' : '未找到可处理的 AI 消息');
+        const r = processLatestMessage();
+        toast(r.msg);
     });
 }
 
@@ -281,7 +326,7 @@ function renderSettingsPanel() {
                     <div class="menu_button" id="td_save_btn" title="保存设置">保存设置</div>
                     <div class="menu_button" id="td_runall_btn" title="手动处理最近一条 AI 回复">立即处理最近一条</div>
                 </div>
-                <small class="td_hint">自动与手动都只处理最近一条 AI 回复。手动：<code>/detag</code> 或悬浮球。</small>
+                <small class="td_hint">自动与手动都只处理最近一条 AI 回复。手动：<code>/detag</code> 或悬浮球。手动后会提示补充未知 tag。</small>
             </div>
         </div>
     `;
@@ -314,8 +359,8 @@ function renderSettingsPanel() {
     $ball.addEventListener('change', persist);
     $runall.addEventListener('click', () => {
         persist();
-        const ok = processLatestMessage();
-        toast(ok ? '已处理最近一条消息' : '未找到可处理的 AI 消息');
+        const r = processLatestMessage();
+        toast(r.msg);
     });
 }
 
@@ -329,11 +374,10 @@ function registerSlashCommand() {
     }
     try {
         register('detag', () => {
-            const ok = processLatestMessage();
-            const msg = ok ? '已处理最近一条消息' : '未找到可处理的 AI 消息';
-            toast(msg);
-            return msg;
-        }, [], '处理最近一条 AI 回复的思考 tag', true, true);
+            const r = processLatestMessage();
+            toast(r.msg);
+            return r.msg;
+        }, [], '处理最近一条 AI 回复的思考 tag，并提示补充未知 tag', true, true);
         console.log(TAG, '已注册 /detag');
     } catch (e) {
         console.warn(TAG, '注册斜杠命令失败', e);
@@ -351,7 +395,6 @@ jQuery(async () => {
     registerSlashCommand();
     ensureFloatingBall();
 
-    // 自动模式：注册事件
     try {
         ctx.eventSource.on(ctx.event_types.MESSAGE_RECEIVED, onMessageReceived);
         console.log(TAG, '已注册 MESSAGE_RECEIVED');
@@ -368,7 +411,6 @@ jQuery(async () => {
         console.warn(TAG, '注册 GENERATION_ENDED 失败', e);
     }
 
-    // 异步等待 MVU，注册精确事件
     waitForMvu().then((mvu) => {
         if (!mvu) {
             console.log(TAG, '未检测到 MVU，使用 MESSAGE_RECEIVED + GENERATION_ENDED 触发');

@@ -10,9 +10,20 @@
 }
 .think-detagger-settings .td_buttons {
     display: flex;
+    flex-direction: row;
     gap: 8px;
     margin-top: 8px;
     flex-wrap: wrap;
+    align-items: center;
+}
+.think-detagger-settings .td_buttons .menu_button {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
 }
 .think-detagger-settings .td_hint {
     display: block;
