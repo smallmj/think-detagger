@@ -234,7 +234,9 @@ function renderSettingsPanel() {
     $runall.addEventListener('click', () => {
         persist();
         const n = processAllInChat();
-        toastr?.success?.(`已处理 ${n} 条 AI 消息`) || alert(`已处理 ${n} 条 AI 消息`);
+        const m = `已处理 ${n} 条 AI 消息`;
+        if (typeof toastr !== 'undefined' && toastr.success) toastr.success(m);
+        else alert(m);
     });
 }
 
