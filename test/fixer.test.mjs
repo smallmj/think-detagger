@@ -75,6 +75,13 @@ const sampleThinkChanged = SAMPLE.replace('思考内容这里', '思考内容那
 ok(contentFingerprint(SAMPLE) !== contentFingerprint(sampleThinkChanged), '思考内容改动指纹变');
 // 幂等
 eq(contentFingerprint(SAMPLE), contentFingerprint(SAMPLE), '指纹幂等');
+// M10: 引号类型替换（LLM 偷换 " 为 '）应被指纹检测到
+{
+    const quoteOrig = '<now_plot>他说"hello"世界</now_plot>';
+    const quoteChanged = "<now_plot>他说'hello'世界</now_plot>";
+    ok(contentFingerprint(quoteOrig) !== contentFingerprint(quoteChanged), 'M10: 引号类型替换指纹变');
+    eq(contentFingerprint(quoteOrig), contentFingerprint(quoteOrig), 'M10: 引号指纹幂等');
+}
 
 console.log('\n== detectIssues ==');
 const d1 = detectIssues(SAMPLE);
@@ -119,6 +126,16 @@ ok(!d4.issues.some(s => s.includes('json_patch 语法错误')), 'CLEAN 无 json 
     const d8 = detectIssues(T, ['think', 'thinking'], ['now_plot'], 'now_plot');
     ok(!d8.issues.some(s => s.includes('未知 tag')), 'think 内未知 tag 不报');
     ok(!d8.issues.some(s => s.includes('代码块未配对')), 'think 内落单围栏不报');
+}
+{
+    // M18: 带属性 json_patch 语法错检测
+    const attrJsonBad = '<think>s</think>\n<now_plot>正文</now_plot>\n<json_patch lang="json">{ invalid }</json_patch>';
+    const dM18 = detectIssues(attrJsonBad, ['think', 'thinking'], ['now_plot'], 'now_plot');
+    ok(dM18.issues.some(s => s.includes('json_patch 语法错误')), 'M18: 带属性 json_patch 语法错检测');
+    // 带属性 json_patch 合法 JSON 不报
+    const attrJsonOk = '<think>s</think>\n<now_plot>正文</now_plot>\n<json_patch lang="json">{ "op": "replace" }</json_patch>';
+    const dM18b = detectIssues(attrJsonOk, ['think', 'thinking'], ['now_plot'], 'now_plot');
+    ok(!dM18b.issues.some(s => s.includes('json_patch 语法错误')), 'M18: 带属性 json_patch 合法 JSON 不报');
 }
 
 console.log('\n== extractFormatRequirements ==');
@@ -234,6 +251,37 @@ console.log('\n== ruleFixStructure ==');
     ok(r.changed, '大小写 plotTag 跨越修正 changed');
     const di2 = detectIssues(r.text, ['think', 'thinking'], ['NOW_PLOT'], 'NOW_PLOT');
     ok(!di2.issues.some(s => s.includes('不平衡')), '大小写 plotTag 修后无不平衡');
+}
+{
+    // M4: 带属性 plotTag 区间识别（getPlotTagRanges 允许属性）
+    const rM4 = ruleFixStructure('<now_plot type="scene">正文 ```js\nconsole.log(1)\n``` 更多</now_plot>');
+    ok(rM4.changed, 'M4: 带属性 plotTag 代码块迁移 changed');
+    ok(rM4.text.includes('console.log(1)'), 'M4: 带属性 plotTag 代码块内容保留');
+    ok(/<\/now_plot>[\s\S]*```/.test(rM4.text), 'M4: 带属性 plotTag 代码块在 </now_plot> 后');
+    // 带属性 plotTag 的嵌套不平衡检测
+    const attrNest = '<think>s</think>\n<now_plot type="scene">\n<details>\n</now_plot>\n<summary>x</summary>\n</details>';
+    const dM4 = detectIssues(attrNest, ['think', 'thinking'], ['now_plot'], 'now_plot');
+    ok(dM4.issues.some(s => s.includes('details') && s.includes('不平衡')), 'M4: 带属性 plotTag 检出 details 不平衡');
+}
+{
+    // M5: 嵌套同名 tag 跨越修正（开多闭少，外层闭标签在 plotTag 外）
+    const NEST_CROSS = '<think>s</think>\n<now_plot>\n<details>\n<details>\n内层\n</details>\n</now_plot>\n<summary>x</summary>\n</details>';
+    const rM5 = ruleFixStructure(NEST_CROSS, 'now_plot', ['think', 'thinking']);
+    ok(rM5.changed, 'M5: 嵌套同名 tag 跨越修正 changed');
+    ok(rM5.reason.includes('跨越tag修正'), 'M5: reason 含跨越tag修正');
+    const diM5 = detectIssues(rM5.text, ['think', 'thinking'], ['now_plot'], 'now_plot');
+    ok(!diM5.issues.some(s => s.includes('不平衡')), 'M5: 嵌套同名 tag 修后无不平衡');
+    const npCloseM5 = rM5.text.indexOf('</now_plot>');
+    const firstDetailsM5 = rM5.text.indexOf('<details>');
+    ok(firstDetailsM5 > npCloseM5, 'M5: 嵌套 details 移到 now_plot 外');
+}
+{
+    // M6: 落单围栏直接删除，不追加到 plotTag 后（仍落单无意义）
+    const rM6 = ruleFixStructure('<now_plot>正文 ```js\n更多内容</now_plot>');
+    ok(rM6.changed, 'M6: 落单围栏删除 changed');
+    ok(!rM6.text.includes('```'), 'M6: 落单围栏已删除无残留');
+    ok(!/<\/now_plot>[\s\S]*```/.test(rM6.text), 'M6: 落单围栏未被追加到 plotTag 后');
+    ok(rM6.text.includes('更多内容'), 'M6: 落单围栏之外内容保留');
 }
 
 console.log(`\n== 结果: ${passed} passed, ${failed} failed ==`);

@@ -40,7 +40,7 @@ export function contentFingerprint(text, thinkTags = BOUNDARY_TAGS) {
     const fp = stripped
         .replace(/```/g, '')
         .replace(/<[^>]*>/g, '')          // 所有 tag
-        .replace(/[`~\[\]{}#>*|_="'\/\\]/g, '') // 标记/标点字符
+        .replace(/[`~\[\]{}#>*|_\/\\]/g, '') // 标记字符（保留引号 ="'，检测 LLM 偷换引号类型）
         .replace(/\s/g, '');              // 空白
     return fp;
 }
@@ -85,7 +85,7 @@ export function detectIssues(text, thinkTags = BOUNDARY_TAGS, knownTags = [], pl
     if (codeFences % 2 !== 0) issues.push('代码块未配对');
 
     // 4. 变量块 JSON 语法错（仅正文区）
-    const jsonPatchRe = /<json_patch>([\s\S]*?)<\/json_patch>/gi;
+    const jsonPatchRe = /<json_patch\b[^>]*>([\s\S]*?)<\/json_patch>/gi;
     let jm;
     let jsonBad = false;
     while ((jm = jsonPatchRe.exec(t)) !== null) {
@@ -244,7 +244,7 @@ const TAIL_ANCHOR_TAGS = [
 // 找出所有完整的 <plotTag>...</plotTag> 配对区间（栈处理嵌套）
 function getPlotTagRanges(text, plotTag) {
     const name = escapeRegExp(plotTag);
-    const tagRe = new RegExp(`<\\s*\\/?\\s*${name}\\s*>`, 'gi');
+    const tagRe = new RegExp(`<\\s*\\/?\\s*${name}\\b[^>]*>`, 'gi');
     const stack = [];
     const ranges = [];
     let match;
@@ -285,7 +285,7 @@ function evictPlotCodeFences(text, plotTag) {
             result = result.slice(0, s.start) + result.slice(s.end);
         }
     }
-    // 落单围栏（成对块已移除后扫残留）
+    // 落单围栏（成对块已移除后扫残留）：直接删除，不追加（仍落单无意义）
     const loneSpans = [];
     for (const range of getPlotTagRanges(result, plotTag)) {
         const inner = result.slice(range.start, range.end);
@@ -293,7 +293,6 @@ function evictPlotCodeFences(text, plotTag) {
         let m;
         while ((m = LONE_FENCE_RE.exec(inner)) !== null) {
             loneSpans.push({ start: range.start + m.index, end: range.start + m.index + m[0].length });
-            evicted.push(m[0]);
         }
     }
     if (loneSpans.length) {
@@ -302,7 +301,7 @@ function evictPlotCodeFences(text, plotTag) {
             result = result.slice(0, s.start) + result.slice(s.end);
         }
     }
-    if (evicted.length === 0) return text;
+    if (evicted.length === 0) return result;
     const closeRe = new RegExp(`<\\s*\\/\\s*${escapeRegExp(plotTag)}\\s*>`, 'gi');
     let lastCloseEnd = -1;
     let cm;
@@ -349,19 +348,35 @@ function fixCrossingTags(text, plotTag) {
         let fixed = false;
         for (const range of ranges) {
             const inner = result.slice(range.start, range.end);
+            // 统计 plotTag 内各 tag 开/闭数量（自闭合不计），参考 checkPlotNesting
+            const selfClose = [];
+            const scRe = /<[A-Za-z\u4e00-\u9fa5][\w:-]*\b[^>]*\/>/g;
+            let sc;
+            while ((sc = scRe.exec(inner)) !== null) selfClose.push([sc.index, sc.index + sc[0].length]);
+            const isSelf = (idx) => selfClose.some(([s, e]) => idx >= s && idx < e);
+            const openC = {}, closeC = {};
+            const balanceRe = /<(\/?)([A-Za-z\u4e00-\u9fa5][\w:-]*)\b[^>]*>/g;
+            let bm;
+            while ((bm = balanceRe.exec(inner)) !== null) {
+                if (isSelf(bm.index)) continue;
+                const n = bm[2].toLowerCase();
+                if (bm[1] === '/') closeC[n] = (closeC[n] || 0) + 1;
+                else openC[n] = (openC[n] || 0) + 1;
+            }
+            // 找第一个开多闭少（openC > closeC）且 plotTag 外有闭标签的 tag 开标签
             const openRe = /<([A-Za-z\u4e00-\u9fa5][\w:-]*)\b[^>]*>/g;
             let m;
             while ((m = openRe.exec(inner)) !== null) {
                 if (m[0].endsWith('/>')) continue;
                 const tagName = m[1];
                 if (tagName.toLowerCase() === plotTag.toLowerCase()) continue;
+                const lname = tagName.toLowerCase();
+                if ((openC[lname] || 0) <= (closeC[lname] || 0)) continue; // 内部平衡，不跨越
                 const openAbs = range.start + m.index;
+                // 检查 plotTag 外（之后）是否还有该 tag 的闭标签
+                const outsideAfter = result.slice(range.end);
                 const closeRe = new RegExp(`</\\s*${escapeRegExp(tagName)}\\s*>`, 'i');
-                const after = result.slice(openAbs + m[0].length);
-                const cm = after.match(closeRe);
-                if (!cm) continue;
-                const closeAbs = openAbs + m[0].length + cm.index;
-                if (closeAbs < range.end) continue; // 闭在内，不跨越
+                if (!closeRe.test(outsideAfter)) continue;
                 // 跨越：找 </plotTag>（在 openAbs 后、range.end 前）
                 const plotCloseStart = (() => {
                     const pcRe = new RegExp(`<\\s*/\\s*${escapeRegExp(plotTag)}\\s*>`, 'gi');

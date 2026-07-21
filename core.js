@@ -63,7 +63,7 @@ export function getDefaultSettings() {
 }
 
 function escapeRegExp(s) {
-    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
@@ -163,9 +163,13 @@ export function detagReasoning(reasoning, tags) {
  * 扫描思考区段内残留的 <xxx> tag，返回"未在危险名单、非边界标签、非安全 HTML"的 tag 列表。
  * 用于手动处理后提示用户是否补充白名单。应在 detagMes 处理后的文本上调用
  * （白名单 tag 已去 <>，不会被匹配；残留的 <xxx> 都是非白名单的）。
+ *
+ * fullText=false（默认）：仅扫描 findThinkRegions 定位到的思考区 content，
+ *   无闭标签（如已抽取的 extra.reasoning）则返回空。
+ * fullText=true：不依赖 findThinkRegions，直接对整个 text 扫所有 tag，
+ *   用于无 </think> 闭标签的 reasoning 等场景。
  */
-export function findUnknownTags(text, thinkTags = BOUNDARY_TAGS, knownTags = [], safeHtmlTags = SAFE_HTML_TAGS) {
-    const regions = findThinkRegions(text, thinkTags);
+export function findUnknownTags(text, thinkTags = BOUNDARY_TAGS, knownTags = [], safeHtmlTags = SAFE_HTML_TAGS, fullText = false) {
     const found = new Set();
     const exclude = new Set();
     for (const t of (thinkTags || [])) exclude.add(String(t).toLowerCase());
@@ -173,6 +177,17 @@ export function findUnknownTags(text, thinkTags = BOUNDARY_TAGS, knownTags = [],
     for (const t of (safeHtmlTags || [])) exclude.add(String(t).toLowerCase());
     // 匹配 <tagname 或 </tagname，首字符为字母/中文，避免匹配注释 <!-- / PI <?
     const tagRe = /<\/?([A-Za-z\u00C0-\uFFFF][^\s>\/]*)/g;
+    if (fullText) {
+        if (!text) return [...found];
+        tagRe.lastIndex = 0;
+        let m;
+        while ((m = tagRe.exec(text)) !== null) {
+            const name = m[1].toLowerCase();
+            if (!exclude.has(name)) found.add(m[1]);
+        }
+        return [...found];
+    }
+    const regions = findThinkRegions(text, thinkTags);
     for (const r of regions) {
         const content = text.slice(r.contentStart, r.contentEnd);
         tagRe.lastIndex = 0;

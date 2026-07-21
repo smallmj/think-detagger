@@ -139,6 +139,36 @@ console.log('\n== findUnknownTags ==');
     const after3 = detagMes('<think><now_plot>x</now_plot> <foo>1</foo> <bar>2</bar></think>', ['now_plot']).mes;
     eq(findUnknownTags(after3, ['think'], ['now_plot'], []).sort().join(','), 'bar,foo', '多个未知 tag 全部发现');
 }
+{
+    // M2: fullText=true 对无 think 闭标签的文本（如已抽取的 reasoning）能扫到未知 tag
+    const reasoning = '推演 <now_plot>X</now_plot> <weird_tag>y</weird_tag>';
+    eq(findUnknownTags(reasoning, ['think'], ['now_plot'], ['b'], true).join(), 'weird_tag', 'M2 fullText=true 扫到未知 tag');
+    // fullText=false（默认）行为不变：无闭标签返回空
+    eq(findUnknownTags(reasoning, ['think'], ['now_plot'], ['b']).length, 0, 'M2 fullText=false 默认无闭标签返回空');
+    eq(findUnknownTags(reasoning, ['think'], ['now_plot'], ['b'], false).length, 0, 'M2 fullText=false 显式无闭标签返回空');
+}
+{
+    // M2: fullText=true 排除 thinkTags/knownTags/safeHtmlTags
+    const txt = '<think>a</think> <now_plot>b</now_plot> <b>c</b> <weird>d</weird>';
+    eq(findUnknownTags(txt, ['think'], ['now_plot'], ['b'], true).join(), 'weird', 'M2 fullText=true 排除三类标签');
+}
+{
+    // M2: fullText=true 多个未知 tag 全部发现
+    const txt2 = '推理 <foo>1</foo> <bar>2</bar> <now_plot>3</now_plot>';
+    eq(findUnknownTags(txt2, ['think'], ['now_plot'], [], true).sort().join(','), 'bar,foo', 'M2 fullText=true 多个未知 tag');
+}
+{
+    // M2: fullText=true 空文本返回空
+    eq(findUnknownTags('', ['think'], [], [], true).length, 0, 'M2 fullText=true 空文本返回空');
+}
+
+console.log('\n== escapeRegExp 非字符串输入（M8）==');
+// escapeRegExp 经 detag/findThinkRegions 间接调用，验证非字符串 tag 不崩
+eq(findThinkRegions('<think>x</think>', [null]).length, 0, 'M8 null tag 不崩返回空 region');
+eq(findThinkRegions('<think>x</think>', [123]).length, 0, 'M8 数字 tag 不崩返回空 region');
+eq(detag('<now_plot>x</now_plot>', [123]).text, '<now_plot>x</now_plot>', 'M8 数字 tag 不崩且不匹配');
+eq(detag('<now_plot>x</now_plot>', [null, 123, 'now_plot']).text, 'now_plotx/now_plot', 'M8 混合 tag 仅匹配字符串');
+eq(detag('<123>x</123>', [123]).text, '123x/123', 'M8 数字 tag 能匹配对应文本');
 
 console.log(`\n== 结果: ${passed} passed, ${failed} failed ==`);
 if (failed > 0) process.exit(1);

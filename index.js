@@ -99,19 +99,27 @@ function withTimeout(promise, ms) {
 // ---------- 核心：处理单条消息（detag + 可选 LLM 修复）----------
 let is_fixing = false;
 let lastNotifiedMessageId = -1;
+let lastUnknownTagNotifiedId = -1;
 
-// 写回 mes 并同步当前 swipe（避免 swipe 切换后修复丢失）
-function setMes(msg, text) {
+// 写回 mes 并同步指定 swipe（M15: 可选 sid 参数，默认 msg.swipe_id；M14: 越界扩容并指向新 swipe）
+function setMes(msg, text, sid) {
     if (!msg) return;
     msg.mes = text;
     if (Array.isArray(msg.swipes)) {
-        const sid = Math.max(0, Number(msg.swipe_id ?? 0) || 0);
-        if (sid < msg.swipes.length) msg.swipes[sid] = text;
+        const useSid = (sid == null) ? msg.swipe_id : sid;
+        const idx = Math.max(0, Number(useSid ?? 0) || 0);
+        if (idx < msg.swipes.length) {
+            msg.swipes[idx] = text;
+        } else {
+            // M14: 越界时扩容并指向新 swipe，保证 mes 与 swipes 同步
+            msg.swipes.push(text);
+            msg.swipe_id = msg.swipes.length - 1;
+        }
     }
 }
 
 async function processMessage(messageId, { force = false, forceFix = false, skipFix = false } = {}) {
-    const empty = { changed: false, removedTags: new Set() };
+    const empty = { changed: false, removedTags: new Set(), llmStarted: false };
     try {
         const settings = getSettings();
         if (!force && !settings.enabled) return empty;
@@ -128,6 +136,7 @@ async function processMessage(messageId, { force = false, forceFix = false, skip
         const thinkTags = settings.thinkTags || BOUNDARY_TAGS;
         const plotTag = settings.plotTag || 'now_plot';
         let changed = false;
+        let llmStarted = false;
         const removed = new Set();
 
         // 1. detag（思考区 tag 去 <>）
@@ -166,6 +175,21 @@ async function processMessage(messageId, { force = false, forceFix = false, skip
             }
         }
 
+        // 1.6 自动模式白名单补充提示（M1: 非阻塞 toast；不弹 confirm，避免打扰）
+        if (!force && lastUnknownTagNotifiedId !== messageId) {
+            let unknown = [];
+            if (msg.mes) unknown = findUnknownTags(msg.mes, thinkTags, tags, SAFE_HTML_TAGS);
+            if (settings.processReasoning && msg.extra?.reasoning) {
+                // reasoning 用 fullText=true（第 5 参数）扫全文
+                const u2 = findUnknownTags(msg.extra.reasoning, thinkTags, tags, SAFE_HTML_TAGS, true);
+                unknown = [...new Set([...unknown, ...u2])];
+            }
+            if (unknown.length > 0) {
+                lastUnknownTagNotifiedId = messageId;
+                toast(`发现未知 tag: ${unknown.map(t => `<${t}>`).join('  ')}，可点悬浮球左半/detag 处理`, 'info');
+            }
+        }
+
         // 2. LLM 修复分支（规则修不了的再交 LLM）
         let doLlmFix;
         if (skipFix) doLlmFix = false;
@@ -175,19 +199,22 @@ async function processMessage(messageId, { force = false, forceFix = false, skip
         if (doLlmFix && !is_fixing && msg.mes) {
             const issues = detectIssues(msg.mes, thinkTags, tags, plotTag);
             if (issues.hasIssues) {
-                // 手动总是询问；自动仅未询问过才询问（防重复打扰）
-                const shouldAsk = forceFix || lastNotifiedMessageId !== messageId;
-                if (shouldAsk) {
-                    if (!forceFix) lastNotifiedMessageId = messageId;
+                if (forceFix) {
+                    // M7: 手动修复跳过原生 confirm，直接进 LLM（diff 确认窗口作为唯一确认）
+                    await llmFixMessage(messageId, thinkTags, plotTag);
+                    llmStarted = true;
+                } else if (lastNotifiedMessageId !== messageId) {
+                    // 自动模式：仅未询问过才询问（防重复打扰）
+                    lastNotifiedMessageId = messageId;
                     const ok = confirm(`格式助手：发现可能格式问题：\n${issues.issues.join('\n')}\n\n是否执行 LLM 修复？`);
-                    if (ok) await llmFixMessage(messageId, thinkTags, plotTag);
+                    if (ok) { await llmFixMessage(messageId, thinkTags, plotTag); llmStarted = true; }
                 }
             } else if (forceFix) {
                 toast('规则修复后未检测到格式问题，无需 LLM 修复');
             }
         }
 
-        return { changed, removedTags: removed };
+        return { changed, removedTags: removed, llmStarted };
     } catch (e) {
         console.error(TAG, 'processMessage 异常', e);
         return empty;
@@ -200,6 +227,8 @@ async function llmFixMessage(messageId, thinkTags, plotTag) {
     const chat = ctx.chat;
     const msg = chat[messageId];
     if (!msg || !msg.mes) return;
+    const origMes = msg.mes; // M9: snapshot，防 LLM 期间 mes 被改后覆盖
+    const origSwipeId = msg.swipe_id; // M15: 记录原始 swipe，防切 swipe 写错
     is_fixing = true;
     try {
         const settings = getSettings();
@@ -212,6 +241,8 @@ async function llmFixMessage(messageId, thinkTags, plotTag) {
         const result = await callFixLLM(msg.mes, thinkTags, plotTag);
         if (!result) { toast('LLM 修复失败，已保留原文', 'warning'); return; }
         if (!result.changed || !result.fixed_text) { toast('LLM 修复：无需改动'); return; }
+        // M17: fixed_text 非字符串则 contentFingerprint 会崩
+        if (typeof result.fixed_text !== 'string') { toast('LLM 返回格式异常', 'warning'); return; }
         const fp2 = contentFingerprint(result.fixed_text, thinkTags);
         if (fp1 !== fp2) {
             console.warn(TAG, '指纹不一致，拒绝应用 LLM 修复');
@@ -221,7 +252,12 @@ async function llmFixMessage(messageId, thinkTags, plotTag) {
         // 确认窗口：高亮 diff，用户确认才写回
         const confirmed = await showFixConfirmDialog(msg.mes, result.fixed_text, result.reason);
         if (!confirmed) { toast('已取消，未应用修复'); return; }
-        setMes(msg, result.fixed_text);
+        // M9: 写回前检查 mes 是否被改
+        if (msg.mes !== origMes) {
+            toast('消息已被修改，放弃 LLM 修复', 'warning');
+            return;
+        }
+        setMes(msg, result.fixed_text, origSwipeId); // M15: 用原始 swipe_id 写回
         const saveChatDebounced = ctx.saveChatDebounced || window.saveChatDebounced;
         const updateMessageBlock = ctx.updateMessageBlock || window.updateMessageBlock;
         if (saveChatDebounced) saveChatDebounced();
@@ -484,6 +520,7 @@ function onVarUpdateEnded(...args) {
     if (typeof a === 'number') messageId = a;
     else if (a && typeof a === 'object') messageId = a.message_id ?? a.messageId ?? a.id ?? null;
     if (messageId == null) { const chat = getCtx().chat; messageId = chat ? chat.length - 1 : null; }
+    clearTimeout(pendingTimer); // M13: 取消待执行防抖，避免与 MESSAGE_RECEIVED 防抖重复触发
     processMessage(messageId);
 }
 
@@ -565,8 +602,11 @@ async function processLatestMessageFix() {
         // 先刷新世界书/预设缓存，确保格式要求来源最新
         loadWorldInfoEntriesForUI();
         loadPresetPromptsForUI();
-        await processMessage(idx, { force: true, forceFix: true });
-        return { ok: true, msg: 'LLM 修复已执行（见结果提示）' };
+        const result = await processMessage(idx, { force: true, forceFix: true });
+        // M16: 根据 llmStarted / is_fixing 返回准确提示
+        if (result.llmStarted) return { ok: true, msg: 'LLM 修复已执行（见结果提示）' };
+        if (is_fixing) return { ok: false, msg: 'LLM 修复进行中，请稍后重试' };
+        return { ok: false, msg: '未执行 LLM 修复' };
     } catch (e) {
         return { ok: false, msg: 'LLM 修复异常：' + (e && e.message ? e.message : e) };
     }
@@ -655,14 +695,19 @@ function persistSettingsFromPanel() {
     s.fixConnection.apiKey = val('td_fix_key').trim();
     s.fixConnection.model = val('td_fix_model').trim();
     s.fixConnection.maxTokens = Number(val('td_fix_maxtok')) || 8192;
-    s.fixConnection.temperature = Number(val('td_fix_temp'));
+    s.fixConnection.temperature = Number(val('td_fix_temp')) || 0.2; // M12: 防 NaN
     s.formatSource = s.formatSource || {};
     s.formatSource.useWorldInfo = chk('td_use_wi');
     s.formatSource.usePreset = chk('td_use_preset');
     s.formatSource.useManual = chk('td_use_manual');
     s.formatSource.manualText = val('td_manual');
-    s.formatSource.selectedWiUids = collectChecked('td_wi_list');
-    s.formatSource.selectedPromptIds = collectChecked('td_preset_list');
+    // M11: 来源未开启或列表未渲染时，保留原值不覆盖（避免空 DOM 返回 [] 清空已选）
+    if (s.formatSource.useWorldInfo && document.getElementById('td_wi_list')) {
+        s.formatSource.selectedWiUids = collectChecked('td_wi_list');
+    }
+    if (s.formatSource.usePreset && document.getElementById('td_preset_list')) {
+        s.formatSource.selectedPromptIds = collectChecked('td_preset_list');
+    }
     saveSettings();
     ensureFloatingBall();
 }
@@ -958,6 +1003,7 @@ jQuery(async () => {
             cachedWiEntries = [];
             cachedPresetPrompts = [];
             lastNotifiedMessageId = -1; // 切聊天后重置，避免新聊天同 id 消息不被询问
+            lastUnknownTagNotifiedId = -1;
             clearTimeout(pendingTimer); // 取消待执行的防抖调用，避免在新区误触发
             if (document.getElementById('td_wi_list')) { loadWorldInfoEntriesForUI(); renderWiList(document.getElementById('td_wi_search')?.value || ''); }
             if (document.getElementById('td_preset_list')) { loadPresetPromptsForUI(); renderPresetList(document.getElementById('td_preset_search')?.value || ''); }
