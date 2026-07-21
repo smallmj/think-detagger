@@ -1,13 +1,15 @@
 # Changelog
 
-## v1.0.2（2026-07-21）- tag 补全
+## v1.0.2（2026-07-21）- tag 补全 + 误报修复 + LLM 规则修复
 
 - **detectIssues 加 checkGlobalTagBalance**：全文 tag 开闭配对检测，报漏开/漏闭（覆盖正文区 plotTag 外），打通 LLM 补全触发。
 - **ruleFixStructure 加 completePlotTag**：规则补全 plotTag 漏开/漏闭（零成本），修掉 rewrapPlot 漏开的双闭畸形 bug。
 - **buildFixPrompt 规则 5 显式化**：补全缺失的开标签 `<xxx>` 或闭标签 `</xxx>`。
 - 其他结构性 tag 漏开/漏闭：detectIssues 检测后触发 LLM 补全（已有流程，指纹对结构性 tag 通过）。
 - 变量块/生图 tag 漏闭：暂不支持（指纹保护变量块内容）。
-- 100 测试通过（fixer）。
+- **initvar 误报修复**：含 `<initvar>` 的变量初始化消息跳过 plotTag 缺失检测，避免 first_mes 误报。
+- **LLM prompt 规则修复**：规则2 允许清理变量块内误嵌的非变量结构（image 生成代码/构思过程 tag）；规则3 允许清理 image 块内构思过程，只保留 image###prompt###。修复 LLM 对"变量块内误嵌 image"返回 changed=false 的问题。
+- 175 测试通过（fixer 102 + core 73）。
 
 ## v1.0.1（2026-07-21）— bug 修复
 
