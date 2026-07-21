@@ -65,7 +65,7 @@
     overflow: hidden;
     cursor: pointer;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-    z-index: 99999;
+    z-index: 9999999;
     user-select: none;
     transition: transform 0.15s ease, opacity 0.15s ease;
     opacity: 0.9;
@@ -90,6 +90,16 @@
 }
 .td-ball-left { background: #6c5ce7; }
 .td-ball-right { background: #00b894; }
+/* 手机端：上移避开底部输入栏，缩小一点 */
+@media (max-width: 768px) {
+    .td-floating-ball {
+        bottom: 150px;
+        right: 12px;
+        width: 52px;
+        height: 52px;
+    }
+    .td-ball-half { font-size: 10px; }
+}
 
 /* LLM 修复设置区 */
 .think-detagger-settings .td_input {
