@@ -1,6 +1,6 @@
 {
   "name": "format-assistant",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "SillyTavern extension: detag think blocks + LLM format fixer for roleplay cards.",
   "type": "module",
   "private": true,

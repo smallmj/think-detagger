@@ -1045,5 +1045,5 @@ jQuery(async () => {
         });
     } catch (e) { console.warn(TAG, '注册 CHAT_CHANGED 失败', e); }
 
-    console.log(TAG, '已加载 v1.0.0');
+    console.log(TAG, '已加载 v1.0.1');
 });
