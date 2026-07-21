@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.0.2（2026-07-21）- tag 补全（beta）
+## v1.0.2（2026-07-21）- tag 补全
 
 - **detectIssues 加 checkGlobalTagBalance**：全文 tag 开闭配对检测，报漏开/漏闭（覆盖正文区 plotTag 外），打通 LLM 补全触发。
 - **ruleFixStructure 加 completePlotTag**：规则补全 plotTag 漏开/漏闭（零成本），修掉 rewrapPlot 漏开的双闭畸形 bug。
