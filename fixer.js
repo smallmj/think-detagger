@@ -216,8 +216,8 @@ export function buildFixPrompt({ originalText, formatRequirements, thinkTags = B
 
 修复规则：
 1. 把写在 <${plot}> 外的正文叙事移入 <${plot}>...</${plot}> 内；Optional 模组（如 DiceCombat/Initiative/DiceCheck/EnemyOverview/SummonOverview/ExperienceLog/LootLog/QuestContract/CombatSnapshot 等）插入正文合适位置，不堆在末尾。
-2. 保留所有变量更新块（<UpdateVariable>/<update>/<json_patch>/<update_analysis>）不删除；可修改变量块内部的 JSON 语法错误（括号/引号/op 名/字段完整性），但不改变量的 path 和 value 的语义值。
-3. 保留 <image>...</image> 与 <pic>...</pic> 生图 tag 原样不动。
+2. 保留所有变量更新块（<UpdateVariable>/<update>/<json_patch>/<update_analysis>）不删除；可修改变量块内部的 JSON 语法错误（括号/引号/op 名/字段完整性），但不改变量的 path 和 value 的语义值。变量更新块内误嵌入的非变量结构（如 image 生成代码、<content>/<images>/<regex>/<Tag_think>/<size>/<prompts>/<全局规划> 等构思过程 tag），应移出到正文容器内或删除。变量块只保留变量更新内容（Analysis/JSONPatch/json_patch 等）。
+3. 保留 <image>...</image> 与 <pic>...</pic> 生图 tag 的位置和内容，但若 image 块内含构思过程 tag（如 <regex>/<Tag_think>/<size>/<prompts> 等），只保留 image###prompt### 格式的图片生成提示词，删除构思过程 tag 和内容。
 4. 不修改思考内容（</think> 之前的部分；思考边界标签 ${thinkNames} 保留）。
 5. 只修格式（结构位置、tag 闭合、补全缺失的开标签 \`<xxx>\` 或闭标签 \`</xxx>\`、tag 名、JSON 语法），不润色不改写正文叙事文字。
 6. 若无需修改，changed 设为 false。

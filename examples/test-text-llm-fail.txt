@@ -1,0 +1,180 @@
+[metacognition]
+- 确认输出语言为：简体中文
+- 必须使用**第三人称视角**，用“他”或完整名字进行代指
+- **以主角为主视角**，只写主角看到、听到、感受到的内容
+- 不写主角看不见或不知道的事。**禁止写非主角视角**
+- 之前发生了什么？主角和沈慕微决定前往洗剑池淬炼天极剑。沈慕微起身时因为腿麻扑进主角怀里，衣衫滑落。
+- 剧情进展到哪里？主角接住了沈慕微，整理好衣物，给她戴上发簪，准备出门。
+- 当前时间、地点、人物关系、角色状态是什么？
+  - 时间：天元243年9月2日·星期二·辰时初（早上8点多）
+  - 地点：小寒山·主院偏房 -> 洗剑池
+  - 人物关系：主角与沈慕微（已确认道侣关系，准备面对外界）
+  - 角色状态：主角刚结丹，需要淬剑；沈慕微面瘫治愈，情绪外露，极度护短。
+- 时间空间验算：从主院偏房出发，御剑前往洗剑池，大约需要片刻时间。时间流逝合理。
+- 深度分析用户输入：
+  - 加速推进剧情：快速过渡到洗剑池场景。
+  - 迅速整理好衣物：主角帮沈慕微穿好衣服，避免走光。
+  - 直接带着天极剑前往洗剑池：目标明确，开始行动。
+  - 出发前亲手把七宝琉璃发簪给沈慕微带上，夸赞她美丽动人：情感互动，强调信物，提升沈慕微的情绪。
+  - 无明确叙述内容默认没有。无权力关系解读。
+- 角色反应预测：
+  - 沈慕微被夸赞和戴上发簪后，会感到害羞、开心，可能会有笨拙的表情回应，同时对前往公共场合（洗剑池）感到一丝紧张或更强的护短心理。
+- 回顾设定：
+  - 洗剑池：瀑布下方的寒潭，人多。
+  - 七宝琉璃发簪：前世定情信物。
+  - 沈慕微的面瘫治愈，但表情依然生涩。
+- 叙事视角：严守主角主视角，不写沈慕微内心独白（除非她直接说出来）。
+- 角色认知：主角知道发簪的意义，知道沈慕微的变化。
+- 文风：轻喜剧与修仙结合，保持白描。
+- 动作物理检查：主角整理衣物、插发簪，沈慕微长袍滑落，动作合理。
+- 构思草稿：
+  1. 主角接住沈慕微，长袍滑落的视觉描写。
+  2. 主角替她拉起衣领，整理妥当。
+  3. 主角拿出七宝琉璃发簪，插入她的发间，出言夸赞。
+  4. 沈慕微的生涩害羞反应，嘴硬掩饰。
+  5. 两人御剑离开小寒山，抵达洗剑池。
+  6. 洗剑池的环境描写（瀑布、寒潭、人多）。
+  7. 其他内门弟子的反应（震惊于首座带新弟子出现，且首座戴了发簪/表情异样）。
+  8. 收尾，留出互动空间。
+- 检查禁词和规则：无八股词汇，不写过度反应。
+</thinking>
+
+<now_plot>
+
+<content>
+沈慕微整个人撞进主角怀里时，那件原本就松垮的月白色长袍彻底从肩膀滑落，堆叠在手肘处。大片白皙的肌肤暴露在略带凉意的空气中，锁骨下方昨夜留下的点点红痕依然清晰可见。
+主角稳稳地接住她，双手托在她的肋下。他没有趁机做些什么，而是顺势将那滑落的长袍重新拉回她的肩头，仔细地将交领拢拢好，系紧了腰间的带子。
+
+<image>image###This is a medium close-up shot, 2:3 vertical ratio, cinematic romantic style, capturing a tender moment of clothing adjustment.
+Main Subject: A 25-year-old Chinese woman, 沈慕微, Absolute Posture: (standing close:1.1), facing the man. Delicate flawless features, flushed red cheeks showing embarrassment and slight shyness, eyes looking down shyly, very long black hair. Small firm breasts beneath clothes. She is wearing a light blue silk robe and moon-white inner shirt, (clothing being adjusted:1.2). Her specific subtle action is standing still, letting him fix her collar, breathing softly.
+Interacting Character & Relationship: A young athletic man standing right in front of her, Absolute Posture: leaning in slightly. His hands are gently pulling the moon-white robe back over her bare shoulders and adjusting the crossed collar near her neck, displaying a protective and gentle gesture.
+Environment & Background: Warm, dimly lit room interior, soft glow from a magical array disk.
+Composition, Lighting & Art Effects: Tight framing on their upper bodies and his hands on her lapels, shallow depth of field focusing on her shy expression and his careful hands, warm indoor lighting, masterpiece, best quality, highly detailed, tender atmosphere., 512x768###</image>
+他将沈慕微扶正，看着她那张因为腿麻和羞窘而涨得有些发红的脸。大乘期修士因为跪久了而腿麻，这种事说出去恐怕都没人信。
+主角没有出言调侃，他从旁边的矮桌上拿起那支七宝琉璃发簪。发簪在恒温阵盘的微光下流转着柔和的神华。他绕到沈慕微身后，将她那头随意散落的乌黑长发拢在手中，手指穿过柔顺的发丝，熟练地挽起一个简单的发髻，然后将那支发簪斜插了进去。
+
+<image>image###This is a cowboy shot from a rear three-quarter angle, 2:3 vertical ratio, cinematic intimate fantasy style, capturing the deeply personal act of tying someone's hair.
+Main Subject: A 25-year-old Chinese woman, 沈慕微, Absolute Posture: (back to viewer:1.1), (head tilted slightly:1.1). Elegant nape of the neck exposed, flushed cheek visible from the side profile, delicate features. Slender shoulders, graceful back curve. She is wearing a properly worn light blue silk robe with silver cloud embroidery on the back and a moon-white inner shirt. Her specific subtle action is sitting or standing still, looking slightly downwards, allowing him to handle her hair.
+Interacting Character & Relationship: A young man standing behind her, Absolute Posture: (standing behind:1.2). His strong, vascular hands are gathered her very long black hair, fingers delicately weaving through the silky strands to form a simple bun, about to insert an ornate colorful glowing hairpin into it.
+Environment & Background: Cozy ancient fantasy room, soft light emanating from a magical array on a low wooden table nearby.
+Composition, Lighting & Art Effects: Focus on the back of her neck, his hands, and the flowing black hair, soft rim lighting highlighting the hair texture and the glowing hairpin, masterpiece, best quality, highly detailed, serene and intensely romantic mood., 512x768###</image>
+【主角】：“这发簪，还是戴在慕微头上最合适。比从前更加动人了。”
+沈慕微抬起手，轻轻摸了摸头上的发簪。她转过身，那张刚恢复知觉不久的脸上，努力想要扯出一个端庄的笑容，但嘴角却不受控制地撇了一下，眼底的水光和压不住的笑意让这个表情显得极其生动而笨拙。
+
+<image>image###This is a close-up portrait, 1:1 square ratio, cinematic realistic fantasy style, capturing a rare, genuine emotional expression breaking through an icy facade.
+Main Subject: A 25-year-old Chinese woman, 沈慕微, Absolute Posture: (turning around:1.1), facing the viewer directly. Exquisite flawless jade skin, extremely flushed red cheeks, (watery eyes:1.2) sparkling with suppressed joy, her lips trying to hold a dignified smile but ending up in a delightfully (awkward, genuine smile:1.3). Her black hair is tied in a simple bun with a radiant multi-colored glass hairpin, a few stray bangs framing her face. She is wearing a light blue silk robe and moon-white inner collar tightly secured. Her specific subtle action is one slender hand raised, gently touching the glowing hairpin on her head.
+Interacting Character & Relationship: None in frame (solo shot).
+Environment & Background: Softly blurred indoor background of an ancient room, warm ambient light.
+Composition, Lighting & Art Effects: Extreme focus on her vivid, clumsy yet beautiful facial expression and the glowing hairpin, soft warm key light on her face, masterpiece, best quality, highly detailed, incredibly endearing and emotionally resonant., 640x640###</image>
+【沈慕微】：“就你嘴甜。快走吧，再磨蹭下去，洗剑池的人都要挤满了。”
+她掩饰般地转过头，率先推开了偏房的木门。
+小寒山外的风雪已经停歇，天光大亮。两人没有惊动还在偏院闭关的江念。主角将天极剑负在背上，沈慕微随手一招，一把散发着寒气的飞剑悬浮在半空。两人踏上飞剑，化作一道流光，朝着后山断剑山脉的方向掠去。
+洗剑池位于天极峰后山的一处巨大断崖下。一条白练般的瀑布从百丈高处砸落，汇入下方深不见底的寒潭之中。寒潭水冰冷刺骨，潭面上常年笼罩着一层白色的寒雾。
+主角站在沈慕微的飞剑上，刚一靠近这片区域，便能听到瀑布轰鸣的水声和四周此起彼伏的剑鸣。潭水边缘的青石上，错落有致地坐着数十名内门弟子。他们正将各自的飞剑浸入寒潭之中，借助那股极寒之气淬炼剑锋。
+飞剑在寒潭边缘落下。主角跳下剑身，脚踏在湿滑的青石板上。
+沈慕微收起飞剑，跟在他身旁。她依然穿着那身月白色的长袍，但因为头上多了一支流光溢彩的七宝琉璃发簪，加上那不再是死气沉沉的面容，整个人透出一种异样的鲜活。
+
+<image>image###This is a cowboy shot, 2:3 vertical ratio, cinematic fantasy wuxia style, capturing a striking entrance at a misty sword-washing pool.
+Main Subject: A 25-year-old Chinese woman, 沈慕微, Absolute Posture: (walking forward:1.1), standing tall and elegant. Exquisite features, a hint of suppressed annoyance but with a vibrant, living energy in her eyes, flushed cheeks, black hair in a bun adorned with a glowing multi-colored glass hairpin, (glowing hairpin:1.2). She is wearing a graceful light blue silk robe and white inner shirt, wide sleeves flowing slightly in the cold wind. Her specific subtle action is walking gracefully, her demeanor noticeably less rigid and more lively than usual.
+Interacting Character & Relationship: A handsome young man walking right beside her, Absolute Posture: striding confidently. Wearing cyan silk robes, a large black heavy sword strapped to his back, acting as her steady companion.
+Environment & Background: A massive cliff base, misty cold pool (sword-washing pool), flying water droplets from a waterfall, wet stone ground, shadowy figures of other disciples in the distant background.
+Composition, Lighting & Art Effects: Vertical composition framing the pair, cool blue and cyan atmospheric lighting contrasting with the warm glow of her hairpin and their skin tones, majestic waterfall mist in the background, masterpiece, best quality, highly detailed, dramatic entrance., 512x768###</image>
+周围的剑鸣声在两人落地的瞬间，突兀地安静了下来。
+那些正在淬剑的内门弟子纷纷转过头，目光齐刷刷地落在这边。天剑宗的弟子对各峰首座都极为熟悉。无情道首座沈慕微，三百年如一日的面瘫脸，除了教导亲传弟子，几乎从不涉足洗剑池这种嘈杂之地。
+更让他们震惊的是，沈慕微不仅来了，头上居然还戴着一支明显带有凡俗脂粉气的发簪，而且……她脸上的表情，虽然绷得很紧，但明显能看出有些不自然的不耐烦，不再是那种万载不化的玄冰。
+
+<image>image###This is a medium close-up portrait, 1:1 square ratio, cinematic wuxia style, capturing a moment of forced composure under public scrutiny.
+Main Subject: A 25-year-old Chinese woman, 沈慕微, Absolute Posture: (standing rigidly:1.1), looking slightly away. Flawless jade skin, her facial expression is tightly controlled but shows a clear hint of (awkward annoyance:1.2) and embarrassment, a stark contrast to her usual icy demeanor. Her black hair is styled in a bun with a distinctly vibrant, slightly worldly glowing glass hairpin sticking out, (ornate glowing hairpin:1.3). She is wearing a light blue silk robe with silver cloud patterns over a high-collared white inner shirt. Her specific subtle action is subtly shifting her gaze, lips pressed tightly together.
+Interacting Character & Relationship: Out of focus in the foreground, silhouettes of awestruck disciples looking towards her.
+Environment & Background: Cold misty environment of the sword-washing pool, wet stone, cyan-tinted mist.
+Composition, Lighting & Art Effects: Sharp focus on her face and the colorful hairpin, cool environmental lighting with a soft bounce light on her face revealing the subtle flush of embarrassment, masterpiece, best quality, highly detailed, compelling character study., 640x640###</image>
+而在她身侧，站着一个面容俊朗、背负黑剑的年轻弟子。那弟子身上穿着青白色的制式服装，却隐隐散发着金丹期的修为波动。
+一名距离最近的执事弟子硬着头皮走上前来，对着沈慕微行了一礼。
+【执事弟子】：“拜见沈首座。不知首座驾临洗剑池，有何吩咐？”
+沈慕微看着眼前战战兢兢的执事弟子，眉头下意识地皱了起来。她习惯性地想要张口训斥两句这里太吵，但话到嘴边，又硬生生咽了回去，只是冷冷地吐出两个字。
+【沈慕微】：“淬剑。”
+执事弟子愣了一下，目光在沈慕微和主角之间转了一圈，立刻会意，赶紧指着瀑布正下方一处灵气最浓郁、水流最湍急的青石台。
+【执事弟子】：“首座请。那边是地字一号剑台，寒气最盛，正适合淬炼上等飞剑。”
+主角顺着他指的方向看去，那处剑台周围的水雾几乎凝结成冰霜，确实是淬炼天极剑绝佳的位置。他朝执事弟子微微颔首，迈步向那处剑台走去。
+</content>
+</now_plot>
+
+```中央神州·天剑宗·小寒山主院偏房·天元243年9月2日·星期二·辰时初 ```
+<theater>
+<details>
+
+<summary>🎭 秋青子吐槽小剧场</summary>
+秋青子：哥哥这发簪戴得真是时候，直接在全宗门面前宣示主权了呢。
+沈慕微：（摸着发簪，语气有点虚）什么宣示主权……这本来就是我的定情信物！
+秋青子：（轻笑）是是是，定情信物。不过长老大人，您这表情管理还是不到位呀，看看那些内门弟子的眼神，估计今天下午，《天剑宗八卦一页知》就要出加刊了。
+沈慕微：冷小凝要是敢乱写，我就去砸了她的笔杆子！
+秋青子：（缠上主角的手臂）哥哥你看，她又开始护短了。洗剑池这么冷，哥哥待会儿淬剑的时候，要不要我用体温帮哥哥暖暖手？
+</details>
+</theater>
+<choice>
+1. 正常推进剧情 - 走到地字一号剑台，拔出天极剑开始淬炼，观察寒潭水对极道剑意的影响。
+2. 互动剧情推进 - 在淬剑过程中，借着水声掩盖，低声与沈慕微交谈，询问她关于剑冢的更多细节。
+3. 冲突剧情推进 - 天极剑入水后引发异象，寒潭水沸腾，引起周围弟子的围观和惊呼。
+4. 色色剧情推进 - 借着水雾的遮掩，故意让沈慕微靠得极近，在指点剑法时产生暧昧的肢体接触。
+5. 搞笑剧情推进 - 沈慕微因为不习惯被人盯着看，表情管理彻底失控，对围观弟子发出极简但极具杀伤力的威胁。
+</choice>
+
+<UpdateVariable>
+<Analysis>
+- Time passed: From AM0010 (morning) to AM0011 (travel and arrival at the sword pool), about 15 minutes have passed.
+- Dramatic updates: No major dramatic updates are needed. The main changes involve location and the presence of a new minor NPC.
+- Variable analysis:
+    - The location has changed from Xiaohan Mountain to the Sword Washing Pool.
+    - The current time has advanced slightly.
+    - A new temporary NPC, the "Deacon Disciple," is now present.
+    - Shen Muwei's internal state reflects her discomfort with being in a public space and her awkwardness in managing her new expressions.
+
+<image>image###` 结构输出。
+
+</全局规划>
+
+<content>
+<images>
+
+<regex>那件原本就松垮的月白色长袍彻底从肩膀滑落, 堆叠在手肘处。大片白皙的肌肤暴露在略带凉意的空气中, 锁骨下方昨夜留下的点点红痕依然清晰可见。</regex>
+<Tag_think>
+1. 交互逻辑与机位锁定:这是一个双人物理接触的瞬间, 女方跌入男方面前。采用 Medium shot 保证上半身互动清晰。
+2. 空间几何自检:女方向前跌倒, 男方接住。女方衣服滑落。
+3. 穿搭自检:月白色长袍滑落, 内部是白皙肌肤（根据前文, 可能只穿着肚兜或内衬, 这里设定为露出香肩和锁骨, 内衬散乱）。
+4. 色气平衡:重点描写滑落的长袍, 锁骨上的红痕（love marks)。
+5. 核心 Tag:(falling into arms:1.2), (slipping robe:1.3), (exposed shoulders:1.2), (love marks on collarbone:1.2).
+</Tag_think>
+<size>512x768</size>
+<prompts>
+This is a medium shot from a slightly high eye-level angle, 2:3 vertical ratio, cinematic romantic fantasy style, capturing the precise moment a woman stumbles forward into a man's embrace.
+Main Subject: A 25-year-old Chinese woman, 沈慕微, Absolute Posture: (falling forward:1.1), (supported by him:1.2). Delicate flawless jade skin, lips slightly parted in surprise, flushed cheeks, very long black hair messy and partially falling over her front shoulder. Small firm breasts, slender waist. She is wearing a light blue silk robe and moon-white inner shirt that have completely slipped off her shoulders, (slipping robe:1.3), (messy inner shirt:1.2), exposing her exquisite bare shoulders, neck, and collarbone. Distinct reddish love marks are visible on her collarbone area, (love marks on skin:1.3). Her specific subtle action is her hands instinctively bracing against his chest.
+Interacting Character & Relationship: A young athletic man holding her from the front, Absolute Posture: standing firm, hands firmly grasping her waist/ribs to catch her fall. Wearing ethereal cyan silk robe, his strong chest supporting her weight.
+Environment & Background: A quiet room with a glowing jade bed, soft warm light from a climate-control array, frosty window indicating winter outside.
+Composition, Lighting & Art Effects: Vertical composition focusing on the entanglement of their upper bodies and the exposed skin contrast, soft warm magical lighting highlighting the skin texture and love marks, masterpiece, best quality, highly detailed, intimate tension., (love marks on collarbone:1.2).
+</Tag_think>
+<size>512x768###</image>
+    - The Deacon Disciple's state reflects his shock and confusion at seeing the reclusive Elder Shen in such a public place with an unknown disciple.
+    - The world's gossip forum should reflect the new events, like Elder Shen's unusual appearance.
+</Analysis>
+<JSONPatch>
+[
+  { "op": "replace", "path": "/世界系统/当前时间", "value": "天元243年9月2日·星期二·辰时中" },
+  { "op": "replace", "path": "/世界系统/大区域", "value": "天剑宗" },
+  { "op": "replace", "path": "/世界系统/子区域", "value": "天极峰后山" },
+  { "op": "replace", "path": "/世界系统/具体地点", "value": "洗剑池" },
+  { "op": "replace", "path": "/人际交往/当前接触人物", "value": {
+    "沈慕微": {
+      "心情": "不耐烦且局促",
+      "心声": "这么多人盯着看，早知道不来了！都怪主角，非要来淬什么剑。还有这发簪，太显眼了……不过他夸我好看。"
+    },
+    "执事弟子": {
+      "心情": "震惊且惶恐",
+      "心声": "天哪！是无情道首座！她不是三百年没出过月微居了吗？她旁边那个金丹期的弟子是谁？她头上怎么还戴着发簪？我该说什么？说错话会不会被冻成冰雕？"
+    }
+  }},
+  { "op": "replace", "path": "/世界系统/在场角色", "value": "沈慕微、执事弟子" }
+]
+</JSONPatch>
+</UpdateVariable>
+
+<StatusPlaceHolderImpl/>
