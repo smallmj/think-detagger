@@ -306,5 +306,58 @@ console.log('\n== 第三批低严重 ==');
     ok(d.filter(l => l.type === 'add').length === 600, '600 新增');
 }
 
+console.log('\n== tag 补全 ==');
+{
+    // detectIssues: 漏闭（plotTag 内）
+    const T1 = '<think>s</think>\n<now_plot><DiceCombat>x</now_plot>\n<summary>y</summary>';
+    const d1 = detectIssues(T1, ['think', 'thinking'], ['now_plot', 'DiceCombat', 'summary'], 'now_plot');
+    ok(d1.issues.some(s => s.includes('漏闭') && s.includes('dicecombat')), '检测 DiceCombat 漏闭');
+}
+{
+    // detectIssues: 漏开（plotTag 内）
+    const T2 = '<think>s</think>\n<now_plot>文</DiceCombat></now_plot>';
+    const d2 = detectIssues(T2, ['think', 'thinking'], ['now_plot'], 'now_plot');
+    ok(d2.issues.some(s => s.includes('漏开') && s.includes('dicecombat')), '检测 DiceCombat 漏开');
+}
+{
+    // detectIssues: 正文区（plotTag 外）漏闭
+    const T3 = '<think>s</think>\n<now_plot>文</now_plot>\n<DiceCombat>x';
+    const d3 = detectIssues(T3, ['think', 'thinking'], ['now_plot', 'DiceCombat'], 'now_plot');
+    ok(d3.issues.some(s => s.includes('漏闭') && s.includes('dicecombat')), '检测正文区 DiceCombat 漏闭');
+}
+{
+    // detectIssues: 平衡不报
+    const T4 = '<think>s</think>\n<now_plot><DiceCombat>x</DiceCombat></now_plot>';
+    const d4 = detectIssues(T4, ['think', 'thinking'], ['now_plot', 'DiceCombat'], 'now_plot');
+    ok(!d4.issues.some(s => s.includes('漏闭') || s.includes('漏开')), '平衡时不报漏开/漏闭');
+}
+{
+    // completePlotTag: plotTag 漏闭补全（锚点前插闭）
+    const r = ruleFixStructure('思</think>\n<now_plot>正文\n<summary>摘要</summary>', 'now_plot', ['think', 'thinking']);
+    ok(r.reason.includes('plotTag补全'), 'reason 含 plotTag补全');
+    const openCount = (r.text.match(/<now_plot\b[^>]*>/gi) || []).length;
+    const closeCount = (r.text.match(/<\/\s*now_plot\s*>/gi) || []).length;
+    eq(openCount, closeCount, '漏闭补全后开闭配对');
+    ok(/<\/now_plot>\n<summary>/.test(r.text), '闭标签插在 summary 前');
+}
+{
+    // completePlotTag: plotTag 漏开补全（删孤儿闭+重包，无双闭畸形）
+    const r = ruleFixStructure('思</think>\n正文\n</now_plot>\n<summary>x</summary>', 'now_plot', ['think', 'thinking']);
+    const openCount = (r.text.match(/<now_plot\b[^>]*>/gi) || []).length;
+    const closeCount = (r.text.match(/<\/\s*now_plot\s*>/gi) || []).length;
+    eq(openCount, 1, '漏开补全后开标签 1 个');
+    eq(closeCount, 1, '漏开补全后闭标签 1 个（无双闭畸形）');
+}
+{
+    // completePlotTag: 已有配对不处理
+    const r = ruleFixStructure('思</think>\n<now_plot>文</now_plot>', 'now_plot', ['think', 'thinking']);
+    ok(!r.reason.includes('plotTag补全'), '已有配对不补全');
+}
+{
+    // buildFixPrompt 规则5含"补全缺失"
+    const p = buildFixPrompt({ originalText: 'x', formatRequirements: '', thinkTags: ['think'], plotTag: 'now_plot' });
+    ok(p.system.includes('补全缺失'), 'buildFixPrompt 含补全缺失文案');
+}
+
 console.log(`\n== 结果: ${passed} passed, ${failed} failed ==`);
 if (failed > 0) process.exit(1);

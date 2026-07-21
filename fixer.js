@@ -107,6 +107,9 @@ export function detectIssues(text, thinkTags = BOUNDARY_TAGS, knownTags = [], pl
     // 6. plotTag 内 tag 开闭不平衡（嵌套跨越边界）
     for (const ni of checkPlotNesting(t, plotTag)) issues.push(ni);
 
+    // 7. 全文 tag 开闭配对（漏开/漏闭，含正文区 plotTag 外）
+    for (const gi of checkGlobalTagBalance(t, plotTag, thinkTags)) issues.push(gi);
+
     return { hasIssues: issues.length > 0, issues };
 }
 
@@ -136,6 +139,35 @@ function checkPlotNesting(text, plotTag) {
                 issues.push(`<${name}> 在 ${plotTag} 内开闭不平衡(开${openC[name] || 0}/闭${closeC[name] || 0})，可能跨越边界`);
             }
         }
+    }
+    return issues;
+}
+
+// 检测全文（剥离 think 后）tag 开闭配对，报漏开/漏闭（覆盖正文区 plotTag 外）
+function checkGlobalTagBalance(text, plotTag, thinkTags) {
+    const issues = [];
+    const exclude = new Set();
+    for (const tt of (thinkTags || [])) exclude.add(String(tt).toLowerCase());
+    exclude.add(String(plotTag || 'now_plot').toLowerCase());
+    const selfClose = [];
+    const scRe = /<[A-Za-z\u4e00-\u9fa5][\w:-]*\b[^>]*\/>/g;
+    let sc;
+    while ((sc = scRe.exec(text)) !== null) selfClose.push([sc.index, sc.index + sc[0].length]);
+    const isSelf = (idx) => selfClose.some(([s, e]) => idx >= s && idx < e);
+    const openC = {}, closeC = {};
+    const tagRe = /<(\/?)([A-Za-z\u4e00-\u9fa5][\w:-]*)\b[^>]*>/g;
+    let m;
+    while ((m = tagRe.exec(text)) !== null) {
+        if (isSelf(m.index)) continue;
+        const name = m[2].toLowerCase();
+        if (exclude.has(name)) continue;
+        if (m[1] === '/') closeC[name] = (closeC[name] || 0) + 1;
+        else openC[name] = (openC[name] || 0) + 1;
+    }
+    for (const name of new Set([...Object.keys(openC), ...Object.keys(closeC)])) {
+        const o = openC[name] || 0, c = closeC[name] || 0;
+        if (o > c) issues.push(`漏闭: <${name}> 未闭 (开${o}/闭${c})`);
+        else if (c > o) issues.push(`漏开: </${name}> 多出 (开${o}/闭${c})`);
     }
     return issues;
 }
@@ -181,7 +213,7 @@ export function buildFixPrompt({ originalText, formatRequirements, thinkTags = B
 2. 保留所有变量更新块（<UpdateVariable>/<update>/<json_patch>/<update_analysis>）不删除；可修改变量块内部的 JSON 语法错误（括号/引号/op 名/字段完整性），但不改变量的 path 和 value 的语义值。
 3. 保留 <image>...</image> 与 <pic>...</pic> 生图 tag 原样不动。
 4. 不修改思考内容（</think> 之前的部分；思考边界标签 ${thinkNames} 保留）。
-5. 只修格式（结构位置、tag 闭合、tag 名、JSON 语法），不润色不改写正文叙事文字。
+5. 只修格式（结构位置、tag 闭合、补全缺失的开标签 \`<xxx>\` 或闭标签 \`</xxx>\`、tag 名、JSON 语法），不润色不改写正文叙事文字。
 6. 若无需修改，changed 设为 false。
 
 ${formatRequirements ? '格式要求：\n' + formatRequirements : '（未提供格式要求，仅按通用规则修复）'}
@@ -313,6 +345,44 @@ function evictPlotCodeFences(text, plotTag) {
     return result.slice(0, lastCloseEnd) + '\n\n' + evicted.join('\n\n') + result.slice(lastCloseEnd);
 }
 
+// 补全 plotTag 漏开/漏闭（确定性规则修复，零成本）
+function completePlotTag(text, plotTag) {
+    const name = escapeRegExp(plotTag);
+    const openRe = new RegExp(`<\\s*${name}\\b[^>]*>`, 'gi');
+    const closeRe = new RegExp(`<\\s*/\\s*${name}\\s*>`, 'gi');
+    const openCount = (text.match(openRe) || []).length;
+    const closeCount = (text.match(closeRe) || []).length;
+    if (openCount === closeCount || (openCount === 0 && closeCount === 0)) return text;
+
+    if (openCount > closeCount) {
+        // 漏闭：在最后一个尾部锚点前插入 </plotTag>；无锚点插末尾
+        const anchorNames = TAIL_ANCHOR_TAGS.map(escapeRegExp).join('|');
+        const anchorRe = new RegExp(`<\\s*(?:${anchorNames})\\b`, 'gi');
+        let lastAnchor = -1;
+        let am;
+        while ((am = anchorRe.exec(text)) !== null) lastAnchor = am.index;
+        const closeTag = `</${plotTag}>`;
+        if (lastAnchor >= 0) {
+            return text.slice(0, lastAnchor) + closeTag + '\n' + text.slice(lastAnchor);
+        }
+        return text.replace(/\s*$/, '') + '\n' + closeTag;
+    } else {
+        // 漏开（closeCount > openCount）：删除多余的孤儿 </plotTag>，交 rewrapPlot 重包裹
+        const closeMatches = [];
+        let cm;
+        closeRe.lastIndex = 0;
+        while ((cm = closeRe.exec(text)) !== null) closeMatches.push({ start: cm.index, end: cm.index + cm[0].length });
+        const toRemove = closeCount - openCount;
+        let result = text;
+        for (let i = 0; i < toRemove; i++) {
+            const last = closeMatches[closeMatches.length - 1 - i];
+            if (!last) break;
+            result = result.slice(0, last.start) + result.slice(last.end);
+        }
+        return result;
+    }
+}
+
 // 当 plotTag 完全缺失时，把 </think> 后到第一个尾部锚点前的正文包进 plotTag。
 // 已有 plotTag 对 / 无思考闭标签 / 无锚点 -> 不处理（交给 LLM），避免误伤。
 function rewrapPlot(text, plotTag, thinkTags) {
@@ -417,6 +487,8 @@ export function ruleFixStructure(text, plotTag = 'now_plot', thinkTags = BOUNDAR
     const reasons = [];
     const a = evictPlotCodeFences(out, plotTag);
     if (a !== out) { out = a; reasons.push('代码块迁移'); }
+    const pre = completePlotTag(out, plotTag);
+    if (pre !== out) { out = pre; reasons.push('plotTag补全'); }
     const b = rewrapPlot(out, plotTag, thinkTags);
     if (b !== out) { out = b; reasons.push('正文重包裹'); }
     const c = fixCrossingTags(out, plotTag);

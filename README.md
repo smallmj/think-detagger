@@ -178,6 +178,7 @@ action, summary, DiceCombat, disclaimer, pic, thought, reasoning
 4. **MVU 晚加载**：轮询等待 `window.Mvu` 最多 10s，超时仅用 `MESSAGE_RECEIVED` + `GENERATION_ENDED` 兜底。
 5. **规则修复有限**：代码块迁移 + 正文重包裹只处理确定性子集；tag 名错、JSON 语法错、复杂语义错位仍需 LLM。
 6. **LLM 修复非万能**：指纹校验保守，LLM 做等价改写（同义词替换）也会被拒（安全优先）；整文重写有成本/延迟。
+7. **变量块/生图 tag 漏闭**：UpdateVariable/json_patch/image/pic 漏闭时不补全（指纹保护变量块内容，补闭会被指纹拒）。
 
 ## 开发与测试
 

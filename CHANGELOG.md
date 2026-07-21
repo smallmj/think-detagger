@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.0.2（2026-07-21）- tag 补全（beta）
+
+- **detectIssues 加 checkGlobalTagBalance**：全文 tag 开闭配对检测，报漏开/漏闭（覆盖正文区 plotTag 外），打通 LLM 补全触发。
+- **ruleFixStructure 加 completePlotTag**：规则补全 plotTag 漏开/漏闭（零成本），修掉 rewrapPlot 漏开的双闭畸形 bug。
+- **buildFixPrompt 规则 5 显式化**：补全缺失的开标签 `<xxx>` 或闭标签 `</xxx>`。
+- 其他结构性 tag 漏开/漏闭：detectIssues 检测后触发 LLM 补全（已有流程，指纹对结构性 tag 通过）。
+- 变量块/生图 tag 漏闭：暂不支持（指纹保护变量块内容）。
+- 100 测试通过（fixer）。
+
 ## v1.0.1（2026-07-21）— bug 修复
 
 三批 bug 修复（高/中/低严重，共约 44 项），162 测试通过。
