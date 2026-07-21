@@ -196,21 +196,26 @@ async function processMessage(messageId, { force = false, forceFix = false, skip
         else if (forceFix) doLlmFix = true;
         else doLlmFix = settings.llmFixEnabled && settings.autoFix;
 
-        if (doLlmFix && !is_fixing && msg.mes) {
-            const issues = detectIssues(msg.mes, thinkTags, tags, plotTag);
-            if (issues.hasIssues) {
-                if (forceFix) {
-                    // M7: 手动修复跳过原生 confirm，直接进 LLM（diff 确认窗口作为唯一确认）
-                    await llmFixMessage(messageId, thinkTags, plotTag);
-                    llmStarted = true;
-                } else if (lastNotifiedMessageId !== messageId) {
-                    // 自动模式：仅未询问过才询问（防重复打扰）
-                    lastNotifiedMessageId = messageId;
-                    const ok = confirm(`格式助手：发现可能格式问题：\n${issues.issues.join('\n')}\n\n是否执行 LLM 修复？`);
-                    if (ok) { await llmFixMessage(messageId, thinkTags, plotTag); llmStarted = true; }
+        if (doLlmFix && msg.mes) {
+            if (is_fixing) {
+                // M7+: 修复进行中，forceFix 时提示用户重试（自动模式静默，避免打扰）
+                if (forceFix) toast('LLM 修复进行中，请稍后重试', 'warning');
+            } else {
+                const issues = detectIssues(msg.mes, thinkTags, tags, plotTag);
+                if (issues.hasIssues) {
+                    if (forceFix) {
+                        // M7 改回：手动修复也先 confirm（省 LLM 调用），diff 确认窗口作为 LLM 返回后的最终确认
+                        const ok = confirm(`格式助手：发现可能格式问题：\n${issues.issues.join('\n')}\n\n是否执行 LLM 修复？`);
+                        if (ok) { await llmFixMessage(messageId, thinkTags, plotTag); llmStarted = true; }
+                    } else if (lastNotifiedMessageId !== messageId) {
+                        // 自动模式：仅未询问过才询问（防重复打扰）
+                        lastNotifiedMessageId = messageId;
+                        const ok = confirm(`格式助手：发现可能格式问题：\n${issues.issues.join('\n')}\n\n是否执行 LLM 修复？`);
+                        if (ok) { await llmFixMessage(messageId, thinkTags, plotTag); llmStarted = true; }
+                    }
+                } else if (forceFix) {
+                    toast('规则修复后未检测到格式问题，无需 LLM 修复');
                 }
-            } else if (forceFix) {
-                toast('规则修复后未检测到格式问题，无需 LLM 修复');
             }
         }
 
@@ -371,6 +376,14 @@ function showFixConfirmDialog(original, fixed, reason) {
         const eq = lines.filter(l => l.type === 'eq').length;
         const del = lines.filter(l => l.type === 'del').length;
         const add = lines.filter(l => l.type === 'add').length;
+        // 超 500 行只渲染前 500 行，末尾加提示，避免卡顿
+        const MAX_LINES = 500;
+        let renderLines = lines;
+        let truncTip = '';
+        if (lines.length > MAX_LINES) {
+            renderLines = lines.slice(0, MAX_LINES);
+            truncTip = `<div class="td-diff-eq td-diff-trunc"><span class="td-diff-mark"> </span>…共 ${lines.length} 行，仅显示前 ${MAX_LINES} 行</div>`;
+        }
         const overlay = document.createElement('div');
         overlay.className = 'td-modal-overlay';
         overlay.innerHTML = `
@@ -379,7 +392,8 @@ function showFixConfirmDialog(original, fixed, reason) {
                 <div class="td-modal-reason"><b>修改原因：</b>${escapeHtml(reason || '(未提供)')}</div>
                 <div class="td-modal-stats"><small>共 ${lines.length} 行：未变 ${eq}，删除 ${del}，新增 ${add}</small></div>
                 <div class="td-diff">
-                    ${lines.map(l => `<div class="td-diff-${l.type}"><span class="td-diff-mark">${l.type === 'del' ? '-' : l.type === 'add' ? '+' : ' '}</span>${escapeHtml(l.text || ' ')}</div>`).join('')}
+                    ${renderLines.map(l => `<div class="td-diff-${l.type}"><span class="td-diff-mark">${l.type === 'del' ? '-' : l.type === 'add' ? '+' : ' '}</span>${escapeHtml(l.text || ' ')}</div>`).join('')}
+                    ${truncTip}
                 </div>
                 <div class="td-modal-buttons">
                     <div class="menu_button" id="td_diff_cancel">取消（不修改）</div>
@@ -388,10 +402,16 @@ function showFixConfirmDialog(original, fixed, reason) {
             </div>
         `;
         document.body.appendChild(overlay);
-        const close = (val) => { overlay.remove(); resolve(val); };
+        const onKeydown = (e) => { if (e.key === 'Escape') close(false); };
+        const close = (val) => {
+            document.removeEventListener('keydown', onKeydown);
+            overlay.remove();
+            resolve(val);
+        };
         overlay.querySelector('#td_diff_cancel').addEventListener('click', () => close(false));
         overlay.querySelector('#td_diff_confirm').addEventListener('click', () => close(true));
         overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
+        document.addEventListener('keydown', onKeydown);
     });
 }
 
@@ -519,7 +539,7 @@ function onVarUpdateEnded(...args) {
     const a = args[0];
     if (typeof a === 'number') messageId = a;
     else if (a && typeof a === 'object') messageId = a.message_id ?? a.messageId ?? a.id ?? null;
-    if (messageId == null) { const chat = getCtx().chat; messageId = chat ? chat.length - 1 : null; }
+    if (messageId == null) { console.warn(TAG, 'onVarUpdateEnded 无 messageId，跳过'); return; }
     clearTimeout(pendingTimer); // M13: 取消待执行防抖，避免与 MESSAGE_RECEIVED 防抖重复触发
     processMessage(messageId);
 }
@@ -631,18 +651,28 @@ function ensureFloatingBall() {
         <div class="td-ball-half td-ball-right" data-action="fix" title="LLM 修复格式（最近一条）">修复</div>
     `;
     document.body.appendChild(ball);
+    // 恢复持久化的悬浮球位置
+    if (settings.ballPos && settings.ballPos.left) ball.style.left = settings.ballPos.left;
+    if (settings.ballPos && settings.ballPos.top) ball.style.top = settings.ballPos.top;
+    if (settings.ballPos) { ball.style.right = 'auto'; ball.style.bottom = 'auto'; }
 
     makeDraggable(ball, (_e, downTarget) => {
         const action = downTarget && downTarget.closest ? (downTarget.closest('[data-action]') || {}).dataset?.action : null;
+        if (!action) return; // 点中缝不响应
         if (action === 'fix') {
             processLatestMessageFix().then(r => { if (!r.ok) toast(r.msg, 'warning'); });
         } else {
             processLatestMessage().then(r => toast(r.msg));
         }
+    }, (el) => {
+        // 拖动结束持久化位置
+        const s = getSettings();
+        s.ballPos = { left: el.style.left || '', top: el.style.top || '' };
+        saveSettings();
     });
 }
 
-function makeDraggable(el, onClick) {
+function makeDraggable(el, onClick, onMoved) {
     let dragging = false;
     let startX = 0, startY = 0, origX = 0, origY = 0, moved = false;
     let downTarget = null;
@@ -667,7 +697,11 @@ function makeDraggable(el, onClick) {
         if (!dragging) return;
         dragging = false;
         try { el.releasePointerCapture(e.pointerId); } catch {}
-        if (!moved && typeof onClick === 'function') onClick(e, downTarget);
+        if (moved) {
+            if (typeof onMoved === 'function') onMoved(el);
+        } else if (typeof onClick === 'function') {
+            onClick(e, downTarget);
+        }
     };
     el.addEventListener('pointerup', endDrag);
     el.addEventListener('pointercancel', endDrag);
@@ -734,15 +768,9 @@ async function refreshModelList() {
         const data = await res.json();
         const list = data.data || data.models || data || [];
         const models = list.map(m => (typeof m === 'string' ? m : (m.id || m.name || m.model))).filter(Boolean);
-        let dl = document.getElementById('td_fix_model_list');
-        if (!dl) {
-            dl = document.createElement('datalist');
-            dl.id = 'td_fix_model_list';
-            document.body.appendChild(dl);
-            const modelInput = document.getElementById('td_fix_model');
-            if (modelInput) modelInput.setAttribute('list', 'td_fix_model_list');
-        }
-        dl.innerHTML = models.map(m => `<option value="${escapeHtml(m)}">`).join('');
+        // 面板 innerHTML 已有 <datalist id="td_fix_model_list">，无需兜底创建
+        const dl = document.getElementById('td_fix_model_list');
+        if (dl) dl.innerHTML = models.map(m => `<option value="${escapeHtml(m)}">`).join('');
         toast(`已获取 ${models.length} 个模型，点模型输入框下拉选择`);
     } catch (e) {
         console.warn(TAG, '拉取模型列表失败', e);
@@ -799,7 +827,7 @@ function renderSettingsPanel() {
                 </div>
                 <div class="td_section">
                     <small>独立修复连接（推荐用便宜快速模型）：</small>
-                    <input type="text" id="td_fix_url" placeholder="API URL" value="${settings.fixConnection?.apiUrl || ''}" class="td_input">
+                    <input type="text" id="td_fix_url" placeholder="API URL（base，如 https://api.x.com/v1）" value="${settings.fixConnection?.apiUrl || ''}" class="td_input">
                     <input type="text" id="td_fix_key" placeholder="API Key" value="${settings.fixConnection?.apiKey || ''}" class="td_input">
                     <div class="td_row">
                         <input type="text" id="td_fix_model" list="td_fix_model_list" placeholder="模型名，如 gemini-2.5-flash" value="${settings.fixConnection?.model || ''}" class="td_input" style="flex:1">
@@ -984,7 +1012,14 @@ jQuery(async () => {
     try {
         const editEvt = ctx.eventTypes.MESSAGE_EDITED;
         if (editEvt) {
-            ctx.eventSource.on(editEvt, (messageId) => { if (messageId != null) processMessage(messageId); });
+            ctx.eventSource.on(editEvt, (messageId) => {
+                if (messageId != null) {
+                    // 编辑后重置通知状态，强制重新评估；仅 detag+ruleFix，与自动开关解耦
+                    lastNotifiedMessageId = -1;
+                    lastUnknownTagNotifiedId = -1;
+                    processMessage(messageId, { force: true, skipFix: true });
+                }
+            });
             console.log(TAG, '已注册 MESSAGE_EDITED');
         }
     } catch (e) { console.warn(TAG, '注册 MESSAGE_EDITED 失败', e); }

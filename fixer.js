@@ -209,7 +209,7 @@ export function lineDiff(original, fixed) {
     const a = original ? original.split('\n') : [];
     const b = fixed ? fixed.split('\n') : [];
     const m = a.length, n = b.length;
-    if (m * n > 1000000) {
+    if (m * n > 250000) {
         const lines = [];
         for (const l of a) lines.push({ type: 'del', text: l });
         for (const l of b) lines.push({ type: 'add', text: l });
@@ -265,7 +265,8 @@ function evictPlotCodeFences(text, plotTag) {
     const ranges = getPlotTagRanges(text, plotTag);
     if (ranges.length === 0) return text;
     const CODE_BLOCK_RE = /`{3,}[^\n]*\n?[\s\S]*?`{3,}/g;
-    const LONE_FENCE_RE = /`{3,}[ \t]*[A-Za-z0-9_+#.\-]*/g;
+    // 允许中文等非 ASCII 语言名（如 ```中文）。排除空白、>、/ 以避免吞掉属性结尾或自闭合符号。
+    const LONE_FENCE_RE = /`{3,}[ \t]*[^\s>\/]*/g;
     const evicted = [];
     const removalSpans = [];
     for (const range of ranges) {
@@ -315,6 +316,8 @@ function evictPlotCodeFences(text, plotTag) {
 // 当 plotTag 完全缺失时，把 </think> 后到第一个尾部锚点前的正文包进 plotTag。
 // 已有 plotTag 对 / 无思考闭标签 / 无锚点 -> 不处理（交给 LLM），避免误伤。
 function rewrapPlot(text, plotTag, thinkTags) {
+    // thinkTags 为空时 thinkCloseRe 会退化成匹配 </>，易误伤；直接返回不处理。
+    if (!thinkTags || thinkTags.length === 0) return text;
     const name = escapeRegExp(plotTag);
     const hasOpen = new RegExp(`<\\s*${name}\\b[^>]*>`, 'i').test(text);
     if (hasOpen) return text; // 已有开标签（含未闭合）不重包裹，避免双重包裹

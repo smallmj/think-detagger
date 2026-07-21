@@ -284,5 +284,27 @@ console.log('\n== ruleFixStructure ==');
     ok(rM6.text.includes('更多内容'), 'M6: 落单围栏之外内容保留');
 }
 
+console.log('\n== 第三批低严重 ==');
+{
+    // LONE_FENCE 中文语言名被删除
+    const r = ruleFixStructure('<now_plot>正文 ```中文 续</now_plot>', 'now_plot', ['think','thinking']);
+    ok(!r.text.includes('```'), '落单围栏带中文语言名被删除');
+    ok(r.text.includes('续'), '中文语言名后内容保留');
+}
+{
+    // rewrapPlot thinkTags 为空不崩不误匹配
+    const r = ruleFixStructure('思</think>\n正文\n<summary>x</summary>', 'now_plot', []);
+    eq(r.changed, false, 'thinkTags 为空时 rewrapPlot 不处理');
+}
+{
+    // lineDiff 大文本超阈值退化为全删全加（不爆内存）
+    const big1 = Array.from({length: 600}, (_, i) => `line${i}`).join('\n');
+    const big2 = Array.from({length: 600}, (_, i) => `row${i}`).join('\n');
+    const d = lineDiff(big1, big2);
+    ok(d.length === 1200, '超阈值退化全删全加（600+600）');
+    ok(d.filter(l => l.type === 'del').length === 600, '600 删除');
+    ok(d.filter(l => l.type === 'add').length === 600, '600 新增');
+}
+
 console.log(`\n== 结果: ${passed} passed, ${failed} failed ==`);
 if (failed > 0) process.exit(1);

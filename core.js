@@ -100,6 +100,7 @@ export function findThinkRegions(text, thinkTags = BOUNDARY_TAGS) {
     const openRe = new RegExp(`<(${names})\\b[^>]*>`, 'gi');
     let searchFrom = 0;
     let cm;
+    let hadPaired = false;
     while ((cm = closeRe.exec(text)) !== null) {
         const closeStart = cm.index;
         const closeEnd = closeStart + cm[0].length;
@@ -119,8 +120,14 @@ export function findThinkRegions(text, thinkTags = BOUNDARY_TAGS) {
         const contentStart = openEnd >= 0 ? openEnd : searchFrom;
         const contentEnd = closeStart;
         if (contentEnd > contentStart) {
+            // 仅收尾区块（无开标签）若前面已有配对开标签，是多余闭标签的幽灵 region，跳过
+            if (openStart < 0 && hadPaired) {
+                searchFrom = closeEnd;
+                continue;
+            }
             regions.push({ contentStart, contentEnd, openStart, openEnd, closeStart, closeEnd });
         }
+        if (openStart >= 0) hadPaired = true;
         searchFrom = closeEnd;
     }
     return regions;

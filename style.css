@@ -194,6 +194,7 @@
 .td-diff-del { background: rgba(231, 76, 60, 0.28); color: #ffbbbb; }
 .td-diff-add { background: rgba(39, 174, 96, 0.28); color: #bbffbb; }
 .td-diff-mark { display: inline-block; width: 1.2em; opacity: 0.7; }
+.td-diff-trunc { opacity: 0.8; font-style: italic; text-align: center; margin-top: 4px; }
 .td-modal-buttons {
     display: flex;
     gap: 8px;

@@ -72,6 +72,8 @@ eq(contents('<THINK>up</THINK>')[0], 'up', '大小写不敏感');
 eq(contents('<think attr="x">abc</think>')[0], 'abc', '带属性 think 开标签');
 eq(contents('abc</think >')[0], 'abc', '带空白 think 闭标签');
 eq(contents('abc</thinking\t>')[0], 'abc', '带制表符 thinking 闭标签');
+eq(findThinkRegions('<think>A</think>gap</think>').length, 1, '多余闭标签不生成幽灵 region');
+eq(contents('<think>A</think>gap</think>')[0], 'A', '幽灵 region 跳过后只保留配对区');
 
 console.log('\n== detagMes ==');
 eq(detagMes('<think>推演 <now_plot>教堂</now_plot></think>正文', TAGS).mes,
